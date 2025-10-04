@@ -43,7 +43,9 @@ export class MemStorage implements IStorage {
       id,
       fileName: insertAnalysis.fileName,
       fileType: insertAnalysis.fileType,
+      fileUrl: insertAnalysis.fileUrl,
       result: insertAnalysis.result as any,
+      deviceId: insertAnalysis.deviceId,
       createdAt: new Date(),
     };
     this.analyses.set(id, analysis);
@@ -58,6 +60,27 @@ export class MemStorage implements IStorage {
     return Array.from(this.analyses.values()).sort(
       (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
     );
+  }
+
+  async getAnalysesByDevice(deviceId: string): Promise<Analysis[]> {
+    return Array.from(this.analyses.values())
+      .filter(analysis => analysis.deviceId === deviceId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async deleteAnalysis(id: string): Promise<boolean> {
+    return this.analyses.delete(id);
+  }
+
+  async clearDeviceHistory(deviceId: string): Promise<number> {
+    const deviceAnalyses = await this.getAnalysesByDevice(deviceId);
+    let deletedCount = 0;
+    for (const analysis of deviceAnalyses) {
+      if (this.analyses.delete(analysis.id)) {
+        deletedCount++;
+      }
+    }
+    return deletedCount;
   }
 }
 

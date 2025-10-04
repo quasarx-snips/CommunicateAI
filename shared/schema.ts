@@ -55,9 +55,8 @@ export const insertAnalysisSchema = createInsertSchema(analyses).pick({
 
 export const analysisSchema = insertAnalysisSchema.extend({
   id: z.string(),
+  fileUrl: z.string().optional(),
   createdAt: z.date(),
-  fileUrl: z.string(),
-  fileType: z.string(),
 });
 
 export type InsertAnalysis = z.infer<typeof insertAnalysisSchema>;

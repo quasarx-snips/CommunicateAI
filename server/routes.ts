@@ -19,15 +19,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { buffer, mimetype, originalname } = req.file;
+      const deviceId = req.body.deviceId || 'unknown';
 
       // Analyze with Gemini
       const analysisResult = await analyzeBodyLanguage(buffer, mimetype, originalname);
+
+      // Convert buffer to base64 for storage
+      const fileUrl = `data:${mimetype};base64,${buffer.toString('base64')}`;
 
       // Save to storage
       const analysis = await storage.createAnalysis({
         fileName: originalname,
         fileType: mimetype,
+        fileUrl,
         result: analysisResult,
+        deviceId,
       });
 
       res.json(analysis);
@@ -59,6 +65,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Get analyses error:", error);
       res.status(500).json({ error: "Failed to get analyses" });
+    }
+  });
+
+  // Get analyses by device
+  app.get("/api/analyses/device/:deviceId", async (req, res) => {
+    try {
+      const analyses = await storage.getAnalysesByDevice(req.params.deviceId);
+      res.json(analyses);
+    } catch (error) {
+      console.error("Get device analyses error:", error);
+      res.status(500).json({ error: "Failed to get device analyses" });
+    }
+  });
+
+  // Clear device history
+  app.delete("/api/analyses/device/:deviceId", async (req, res) => {
+    try {
+      const deletedCount = await storage.clearDeviceHistory(req.params.deviceId);
+      res.json({ deletedCount });
+    } catch (error) {
+      console.error("Clear device history error:", error);
+      res.status(500).json({ error: "Failed to clear device history" });
     }
   });
 
