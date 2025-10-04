@@ -15,11 +15,11 @@ const colorStyles = {
 
 export default function FeatureCard({ icon: Icon, title, color }: FeatureCardProps) {
   return (
-    <div className="flex items-center gap-4 p-6 bg-white rounded-xl border border-gray-200">
-      <div className={`w-12 h-12 rounded-full ${colorStyles[color]} flex items-center justify-center shrink-0`}>
-        <Icon className="w-6 h-6" />
+    <div className={`bg-card rounded-xl border-2 ${colorStyles[color]} p-3 sm:p-6 text-center transition-all duration-200 hover:shadow-lg hover:scale-105`}>
+      <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-opacity-20 mx-auto mb-2 sm:mb-4 flex items-center justify-center" style={{ backgroundColor: `var(--${color}-100)` }}>
+        <Icon className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: `var(--${color}-600)` }} />
       </div>
-      <p className="text-lg font-medium text-foreground">{title}</p>
+      <h3 className="text-xs sm:text-sm font-semibold text-card-foreground">{title}</h3>
     </div>
   );
 }

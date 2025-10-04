@@ -82,12 +82,38 @@ export default function Results() {
           </Button>
         </div>
 
-        <h1 className="text-3xl font-bold text-foreground mb-8 text-center">Analysis Results</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground mb-6 sm:mb-8 text-center">Analysis Results</h1>
 
-        <div className="space-y-8">
-          {/* File info */}
-          <div className="bg-gray-100 rounded-xl p-4 text-center">
-            <p className="text-sm text-muted-foreground">Analyzed: {analysis.fileName}</p>
+        <div className="space-y-6 sm:space-y-8">
+          {/* Uploaded Media Display */}
+          <div className="bg-card border border-card-border rounded-xl p-4 sm:p-6">
+            <h2 className="text-lg sm:text-xl font-semibold text-card-foreground mb-3 sm:mb-4 text-center">Analyzed Media</h2>
+            <div className="flex justify-center">
+              {analysis.fileType?.startsWith('image/') && (
+                <img 
+                  src={analysis.fileUrl} 
+                  alt="Analyzed content" 
+                  className="max-w-full h-auto rounded-lg max-h-[400px] object-contain"
+                />
+              )}
+              {analysis.fileType?.startsWith('video/') && (
+                <video 
+                  src={analysis.fileUrl} 
+                  controls 
+                  className="max-w-full h-auto rounded-lg max-h-[400px]"
+                />
+              )}
+              {analysis.fileType?.startsWith('audio/') && (
+                <div className="w-full max-w-md">
+                  <audio 
+                    src={analysis.fileUrl} 
+                    controls 
+                    className="w-full"
+                  />
+                </div>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground text-center mt-3">{analysis.fileName}</p>
           </div>
 
           {/* Overall Score */}
@@ -99,8 +125,8 @@ export default function Results() {
 
           {/* Detection Results */}
           <div>
-            <h2 className="text-xl font-semibold text-foreground mb-4">Detection Results</h2>
-            <div className="grid grid-cols-3 gap-6 bg-gray-50 rounded-xl p-6">
+            <h2 className="text-lg sm:text-xl font-semibold text-foreground mb-3 sm:mb-4">Detection Results</h2>
+            <div className="grid grid-cols-3 gap-3 sm:gap-6 bg-card border border-card-border rounded-xl p-4 sm:p-6">
               {result.detections.map((detection) => (
                 <DetectionResult
                   key={detection.label}
@@ -138,9 +164,9 @@ export default function Results() {
           </div>
 
           {/* Body Language Metrics */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <h2 className="text-xl font-semibold text-foreground mb-6">Body Language Metrics</h2>
-            <div className="space-y-6">
+          <div className="bg-card rounded-xl border border-card-border p-4 sm:p-6">
+            <h2 className="text-lg sm:text-xl font-semibold text-card-foreground mb-4 sm:mb-6">Body Language Metrics</h2>
+            <div className="space-y-4 sm:space-y-6">
               {result.metrics.map((metric) => (
                 <MetricBar
                   key={metric.label}

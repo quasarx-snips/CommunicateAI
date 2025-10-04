@@ -56,36 +56,36 @@ export default function Home() {
     <div className="min-h-screen bg-background">
       <Header />
       
-      <main className="container mx-auto px-4 py-12 max-w-4xl">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-foreground mb-4">
+      <main className="container mx-auto px-4 py-6 sm:py-12 max-w-4xl">
+        <div className="text-center mb-8 sm:mb-12">
+          <h1 className="text-3xl sm:text-4xl font-bold text-foreground mb-3 sm:mb-4">
             Analyze Your Body Language
           </h1>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto px-2">
             Get instant insights into your posture, facial expressions, and gestures to improve your communication skills.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-12">
+        <div className="grid grid-cols-2 md:grid-cols-2 gap-3 sm:gap-4 mb-8 sm:mb-12">
           <FeatureCard icon={Smile} title="Emotion Detection" color="green" />
           <FeatureCard icon={User} title="Posture Analysis" color="blue" />
           <FeatureCard icon={Hand} title="Gesture Recognition" color="orange" />
           <FeatureCard icon={TrendingUp} title="Actionable Insights" color="purple" />
         </div>
 
-        <div className="space-y-6">
-          <h2 className="text-2xl font-bold text-center text-foreground">Get Started</h2>
+        <div className="space-y-4 sm:space-y-6">
+          <h2 className="text-xl sm:text-2xl font-bold text-center text-foreground">Get Started</h2>
           <div className="max-w-md mx-auto">
             {isAnalyzing ? (
-              <Button disabled className="w-full h-auto py-6 px-8 text-lg font-semibold">
-                <Loader2 className="w-6 h-6 mr-3 animate-spin" />
+              <Button disabled className="w-full h-auto py-4 sm:py-6 px-6 sm:px-8 text-base sm:text-lg font-semibold">
+                <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3 animate-spin" />
                 Analyzing...
               </Button>
             ) : (
               <UploadButton icon={Camera} label="Take Photo" onClick={handleTakePhoto} />
             )}
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-md mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 max-w-md mx-auto">
             <UploadButton 
               icon={Video} 
               label="Upload Video" 

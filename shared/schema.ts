@@ -42,14 +42,22 @@ export const analyses = pgTable("analyses", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   fileName: text("file_name").notNull(),
   fileType: text("file_type").notNull(),
+  fileUrl: text("file_url").notNull(),
   result: jsonb("result").notNull().$type<AnalysisResult>(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const insertAnalysisSchema = createInsertSchema(analyses).pick({
   fileName: true,
   fileType: true,
+  fileUrl: true,
   result: true,
+});
+
+export const analysisSchema = insertAnalysisSchema.extend({
+  id: z.string(),
+  createdAt: z.date(),
+  fileUrl: z.string(),
+  fileType: z.string(),
 });
 
 export type InsertAnalysis = z.infer<typeof insertAnalysisSchema>;
