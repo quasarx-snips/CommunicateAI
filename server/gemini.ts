@@ -33,13 +33,14 @@ Respond in JSON format matching this structure exactly.`;
           mimeType: mimeType,
         },
       },
-      systemPrompt,
+      `${systemPrompt}
+
+Analyze this image/video/audio for body language and communication patterns.`,
     ];
 
     const response = await ai.models.generateContent({
       model: "gemini-2.0-flash-exp",
       config: {
-        systemInstruction: systemPrompt,
         responseMimeType: "application/json",
         responseSchema: {
           type: "object",
