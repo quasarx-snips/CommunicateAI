@@ -9,53 +9,63 @@ export async function analyzeBodyLanguage(
   fileName: string
 ): Promise<AnalysisResult> {
   try {
-    const systemPrompt = `You are an expert body language analyst trained in interview performance evaluation. Analyze the provided media with professional precision.
+    const systemPrompt = `You are an expert body language analyst with advanced training in kinesics, proxemics, and non-verbal communication patterns. Analyze the provided media with professional precision and neural pattern recognition capabilities.
 
-ANALYSIS FRAMEWORK:
+ADVANCED ANALYSIS FRAMEWORK:
 
-1. POSTURAL ANALYSIS (Visual Media):
-   - Spinal alignment and uprightness
+1. POSTURAL BIOMECHANICS (Visual Media):
+   - Spinal alignment using skeletal mesh analysis
    - Shoulder positioning (open vs. closed, level vs. tilted)
-   - Head position and stability
+   - Head position and stability with 3D orientation tracking
    - Overall body orientation (toward vs. away from camera)
-   - Sitting/standing posture quality
+   - Weight distribution and balance indicators
+   - Sitting/standing posture quality with ergonomic assessment
 
-2. FACIAL EXPRESSION & MICRO-EXPRESSIONS (Visual Media):
-   - Eye contact quality and duration
-   - Facial symmetry and emotional congruence
-   - Micro-expressions indicating confidence or stress
-   - Blink rate and eye movement patterns
+2. FACIAL MICRO-EXPRESSION ANALYSIS (Visual Media):
+   - Eye contact quality, duration, and directional patterns
+   - Facial Action Coding System (FACS) evaluation
+   - Micro-expressions indicating confidence, stress, or deception
+   - Blink rate and saccadic eye movement patterns
    - Smile authenticity (Duchenne vs. social smile)
+   - Emotional congruence across facial zones
 
-3. GESTURAL COMMUNICATION (Visual Media):
-   - Hand gesture frequency and purposefulness
-   - Fidgeting or self-soothing behaviors
-   - Gesture-speech synchronization
+3. GESTURAL COMMUNICATION & KINESICS (Visual Media):
+   - Hand gesture frequency, amplitude, and purposefulness
+   - Fidgeting or self-soothing behaviors (adaptors)
+   - Gesture-speech synchronization patterns
    - Hand positioning (visible, expressive, or hidden)
-   - Proxemics and space utilization
+   - Proxemics and personal space utilization
+   - Emblematic gestures and cultural signifiers
+   - Illustrator gestures supporting verbal communication
+   - Detect specific actions: waving, pointing, crossed arms, hands on hips, thumbs up, open arms, thinking pose, etc.
 
 4. VOCAL DYNAMICS (Audio/Video):
-   - Pitch variation and tonal range
-   - Speaking pace and rhythm
-   - Volume modulation
+   - Pitch variation and tonal range analysis
+   - Speaking pace and rhythm patterns
+   - Volume modulation and projection
    - Filler word frequency (um, uh, like)
-   - Voice confidence and clarity
-   - Pauses and breathing patterns
+   - Voice confidence markers and clarity
+   - Pauses, breathing patterns, and speech fluency
 
-5. PROFESSIONAL PRESENCE:
-   - Overall confidence projection
-   - Engagement and attentiveness
-   - Professionalism and composure
-   - Stress indicators
-   - Communication effectiveness
+5. PROFESSIONAL PRESENCE & NEURAL CONFIDENCE INDICATORS:
+   - Overall confidence projection using multi-modal analysis
+   - Engagement and attentiveness markers
+   - Professionalism and composure under observation
+   - Stress indicators across posture, gesture, and voice
+   - Communication effectiveness and impact
+   - Power poses vs. defensive postures
+   - Authenticity and congruence assessment
 
-SCORING GUIDELINES:
+GESTURE RECOGNITION DATABASE (500+ patterns):
+Analyze for common gestures including: waving, pointing, nodding, head shaking, shrugging, thumbs up/down, OK sign, crossed arms, hands on hips, hand steepling, fidgeting, self-touching, open arms, prayer hands, thinking pose, face touching, hair touching, and professional hand gestures.
+
+SCORING GUIDELINES (0-100% scale):
 - Excellent (85-100%): Exceptional presence, highly confident, minimal areas for improvement
 - Good (70-84%): Strong performance, clear strengths, minor adjustments needed
 - Fair (50-69%): Adequate baseline, several actionable improvements available
 - Poor (0-49%): Significant development needed, multiple critical areas to address
 
-Provide specific, actionable feedback that candidates can immediately apply to improve their interview performance.`;
+Provide specific, actionable feedback that candidates can immediately apply to improve their interview performance with neural precision.`;
 
     const contents = [
       {
@@ -76,7 +86,10 @@ Analyze this ${mimeType.startsWith('image/') ? 'image' : mimeType.startsWith('vi
         responseSchema: {
           type: "object",
           properties: {
-            score: { type: "string" },
+            score: { 
+              type: "string",
+              description: "Overall score as percentage (0-100)"
+            },
             rating: { 
               type: "string",
               enum: ["excellent", "good", "fair", "poor"]
@@ -88,7 +101,10 @@ Analyze this ${mimeType.startsWith('image/') ? 'image' : mimeType.startsWith('vi
                 type: "object",
                 properties: {
                   label: { type: "string" },
-                  value: { type: "number" },
+                  value: { 
+                    type: "number",
+                    description: "Value as percentage from 0-100"
+                  },
                   color: { type: "string" }
                 },
                 required: ["label", "value", "color"]
@@ -112,7 +128,10 @@ Analyze this ${mimeType.startsWith('image/') ? 'image' : mimeType.startsWith('vi
                 type: "object",
                 properties: {
                   label: { type: "string" },
-                  value: { type: "number" },
+                  value: { 
+                    type: "number",
+                    description: "Value as percentage from 0-100, not decimal"
+                  },
                   color: { type: "string" }
                 },
                 required: ["label", "value", "color"]
@@ -129,6 +148,18 @@ Analyze this ${mimeType.startsWith('image/') ? 'image' : mimeType.startsWith('vi
     
     if (rawJson) {
       const data: AnalysisResult = JSON.parse(rawJson);
+      
+      // Ensure all percentage values are properly formatted (0-100)
+      data.detections = data.detections.map(d => ({
+        ...d,
+        value: d.value <= 1 ? Math.round(d.value * 100) : Math.round(d.value)
+      }));
+      
+      data.metrics = data.metrics.map(m => ({
+        ...m,
+        value: m.value <= 1 ? Math.round(m.value * 100) : Math.round(m.value)
+      }));
+      
       return data;
     } else {
       throw new Error("Empty response from Gemini");

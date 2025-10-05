@@ -20,6 +20,7 @@ export default function LiveAnalysis() {
   const [metrics, setMetrics] = useState<{ label: string; value: number; color: string }[]>([]);
   const [fps, setFps] = useState(0);
   const [detectorReady, setDetectorReady] = useState(false);
+  const [currentGesture, setCurrentGesture] = useState<string>("Neutral");
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -85,7 +86,7 @@ export default function LiveAnalysis() {
 
     if (leftShoulder && rightShoulder && leftShoulder.score > 0.3 && rightShoulder.score > 0.3) {
       const shoulderDiff = Math.abs(leftShoulder.y - rightShoulder.y);
-      const shoulderAlignment = Math.max(0, 100 - shoulderDiff * 200);
+      const shoulderAlignment = Math.max(0, 1 - shoulderDiff * 2) * 100;
       
       metrics.push({
         label: "Posture Alignment",
@@ -104,7 +105,7 @@ export default function LiveAnalysis() {
         y: (leftEye.y + rightEye.y) / 2,
       };
       const headTilt = Math.abs(nose.x - eyeCenter.x);
-      const headStability = Math.max(0, 100 - headTilt * 300);
+      const headStability = Math.max(0, 1 - headTilt * 3) * 100;
       
       metrics.push({
         label: "Head Stability",
@@ -139,7 +140,7 @@ export default function LiveAnalysis() {
     if (leftShoulder && rightShoulder && leftHip && rightHip) {
       const shoulderWidth = Math.abs(leftShoulder.x - rightShoulder.x);
       const hipWidth = Math.abs(leftHip.x - rightHip.x);
-      const openness = Math.min(100, (shoulderWidth / hipWidth) * 100);
+      const openness = Math.min(1, shoulderWidth / hipWidth) * 100;
       
       metrics.push({
         label: "Body Openness",
@@ -168,6 +169,90 @@ export default function LiveAnalysis() {
     return { metrics, feedback: feedbackMessages.slice(0, 3) };
   };
 
+  const detectGesture = (keypoints: any[]): string => {
+    const getKeypoint = (name: string) => keypoints.find((kp) => kp.name === name);
+    
+    const leftWrist = getKeypoint("left_wrist");
+    const rightWrist = getKeypoint("right_wrist");
+    const leftElbow = getKeypoint("left_elbow");
+    const rightElbow = getKeypoint("right_elbow");
+    const leftShoulder = getKeypoint("left_shoulder");
+    const rightShoulder = getKeypoint("right_shoulder");
+    const nose = getKeypoint("nose");
+    
+    // Wave detection
+    if (rightWrist && rightElbow && rightShoulder && 
+        rightWrist.score > 0.5 && rightElbow.score > 0.5 && rightShoulder.score > 0.5) {
+      if (rightWrist.y < rightElbow.y && rightWrist.y < rightShoulder.y) {
+        return "👋 Waving Right Hand";
+      }
+    }
+    
+    if (leftWrist && leftElbow && leftShoulder && 
+        leftWrist.score > 0.5 && leftElbow.score > 0.5 && leftShoulder.score > 0.5) {
+      if (leftWrist.y < leftElbow.y && leftWrist.y < leftShoulder.y) {
+        return "👋 Waving Left Hand";
+      }
+    }
+    
+    // Arms crossed
+    if (leftWrist && rightWrist && leftShoulder && rightShoulder &&
+        leftWrist.score > 0.5 && rightWrist.score > 0.5) {
+      if (leftWrist.x > rightShoulder.x && rightWrist.x < leftShoulder.x) {
+        return "🤝 Arms Crossed";
+      }
+    }
+    
+    // Hands on hips
+    if (leftWrist && rightWrist && leftShoulder && rightShoulder &&
+        leftWrist.score > 0.5 && rightWrist.score > 0.5) {
+      const leftHip = getKeypoint("left_hip");
+      const rightHip = getKeypoint("right_hip");
+      if (leftHip && rightHip) {
+        const leftDist = Math.abs(leftWrist.x - leftHip.x) + Math.abs(leftWrist.y - leftHip.y);
+        const rightDist = Math.abs(rightWrist.x - rightHip.x) + Math.abs(rightWrist.y - rightHip.y);
+        if (leftDist < 0.15 && rightDist < 0.15) {
+          return "💪 Hands on Hips - Confident";
+        }
+      }
+    }
+    
+    // Thumbs up
+    if (rightWrist && rightElbow && rightShoulder &&
+        rightWrist.score > 0.5 && rightElbow.score > 0.5) {
+      if (rightWrist.y < rightShoulder.y && rightElbow.y < rightShoulder.y) {
+        return "👍 Thumbs Up";
+      }
+    }
+    
+    // Thinking pose (hand near face)
+    if (nose && rightWrist && rightWrist.score > 0.5 && nose.score > 0.5) {
+      const distance = Math.sqrt(Math.pow(nose.x - rightWrist.x, 2) + Math.pow(nose.y - rightWrist.y, 2));
+      if (distance < 0.15) {
+        return "🤔 Thinking Pose";
+      }
+    }
+    
+    if (nose && leftWrist && leftWrist.score > 0.5 && nose.score > 0.5) {
+      const distance = Math.sqrt(Math.pow(nose.x - leftWrist.x, 2) + Math.pow(nose.y - leftWrist.y, 2));
+      if (distance < 0.15) {
+        return "🤔 Thinking Pose";
+      }
+    }
+    
+    // Open arms
+    if (leftWrist && rightWrist && leftShoulder && rightShoulder &&
+        leftWrist.score > 0.5 && rightWrist.score > 0.5) {
+      const armSpan = Math.abs(leftWrist.x - rightWrist.x);
+      const shoulderSpan = Math.abs(leftShoulder.x - rightShoulder.x);
+      if (armSpan > shoulderSpan * 1.8 && leftWrist.y > leftShoulder.y && rightWrist.y > rightShoulder.y) {
+        return "🙌 Open Arms - Welcoming";
+      }
+    }
+    
+    return "Neutral";
+  };
+
   const drawPoseLandmarks = (poses: any[], canvas: HTMLCanvasElement) => {
     const ctx = canvas.getContext("2d");
     if (!ctx || !poses.length) return;
@@ -177,15 +262,7 @@ export default function LiveAnalysis() {
     poses.forEach((pose) => {
       const keypoints = pose.keypoints;
 
-      keypoints.forEach((keypoint: any) => {
-        if (keypoint.score > 0.3) {
-          ctx.beginPath();
-          ctx.arc(keypoint.x, keypoint.y, 5, 0, 2 * Math.PI);
-          ctx.fillStyle = keypoint.score > 0.6 ? "#22c55e" : "#f59e0b";
-          ctx.fill();
-        }
-      });
-
+      // Draw mesh-like connections first (background layer)
       const connections = [
         ["nose", "left_eye"],
         ["nose", "right_eye"],
@@ -210,14 +287,71 @@ export default function LiveAnalysis() {
         const endKp = keypoints.find((kp: any) => kp.name === end);
 
         if (startKp && endKp && startKp.score > 0.3 && endKp.score > 0.3) {
+          // Animated gradient line
+          const gradient = ctx.createLinearGradient(startKp.x, startKp.y, endKp.x, endKp.y);
+          gradient.addColorStop(0, "rgba(59, 130, 246, 0.8)");
+          gradient.addColorStop(0.5, "rgba(124, 58, 237, 0.8)");
+          gradient.addColorStop(1, "rgba(59, 130, 246, 0.8)");
+          
           ctx.beginPath();
           ctx.moveTo(startKp.x, startKp.y);
           ctx.lineTo(endKp.x, endKp.y);
-          ctx.strokeStyle = "rgba(59, 130, 246, 0.6)";
-          ctx.lineWidth = 2;
+          ctx.strokeStyle = gradient;
+          ctx.lineWidth = 3;
+          ctx.shadowBlur = 8;
+          ctx.shadowColor = "rgba(59, 130, 246, 0.5)";
           ctx.stroke();
+          ctx.shadowBlur = 0;
         }
       });
+
+      // Draw keypoint nodes (foreground layer)
+      keypoints.forEach((keypoint: any) => {
+        if (keypoint.score > 0.3) {
+          // Outer glow
+          ctx.beginPath();
+          ctx.arc(keypoint.x, keypoint.y, 8, 0, 2 * Math.PI);
+          const glowGradient = ctx.createRadialGradient(
+            keypoint.x, keypoint.y, 0,
+            keypoint.x, keypoint.y, 8
+          );
+          glowGradient.addColorStop(0, keypoint.score > 0.6 ? "rgba(34, 197, 94, 0.6)" : "rgba(245, 158, 11, 0.6)");
+          glowGradient.addColorStop(1, "rgba(0, 0, 0, 0)");
+          ctx.fillStyle = glowGradient;
+          ctx.fill();
+          
+          // Inner core
+          ctx.beginPath();
+          ctx.arc(keypoint.x, keypoint.y, 4, 0, 2 * Math.PI);
+          ctx.fillStyle = keypoint.score > 0.6 ? "#22c55e" : "#f59e0b";
+          ctx.fill();
+          
+          // Highlight
+          ctx.beginPath();
+          ctx.arc(keypoint.x - 1, keypoint.y - 1, 2, 0, 2 * Math.PI);
+          ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+          ctx.fill();
+        }
+      });
+      
+      // Draw face mesh for facial landmarks
+      const faceLandmarks = ["nose", "left_eye", "right_eye", "left_ear", "right_ear"];
+      const facePoints = faceLandmarks
+        .map(name => keypoints.find((kp: any) => kp.name === name))
+        .filter(kp => kp && kp.score > 0.4);
+      
+      if (facePoints.length >= 3) {
+        ctx.beginPath();
+        ctx.strokeStyle = "rgba(167, 139, 250, 0.4)";
+        ctx.lineWidth = 1;
+        for (let i = 0; i < facePoints.length; i++) {
+          const p1 = facePoints[i];
+          const p2 = facePoints[(i + 1) % facePoints.length];
+          ctx.moveTo(p1.x, p1.y);
+          ctx.lineTo(p2.x, p2.y);
+        }
+        ctx.stroke();
+      }
     });
   };
 
@@ -242,6 +376,10 @@ export default function LiveAnalysis() {
           );
           setMetrics(newMetrics);
           setFeedback(newFeedback);
+          
+          const gesture = detectGesture(poses[0].keypoints);
+          setCurrentGesture(gesture);
+          
           drawPoseLandmarks(poses, overlayCanvas);
         }
 
@@ -428,6 +566,12 @@ export default function LiveAnalysis() {
                   <div className="absolute top-4 right-4 bg-primary text-primary-foreground px-3 py-1 rounded-full flex items-center gap-2 shadow-lg" data-testid="deep-analysis-indicator">
                     <Loader2 className="w-4 h-4 animate-spin" />
                     <span className="text-sm">Deep Analysis</span>
+                  </div>
+                )}
+                
+                {isStreaming && currentGesture !== "Neutral" && (
+                  <div className="absolute top-4 left-4 bg-purple-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-xl animate-pulse">
+                    <span className="text-lg">{currentGesture}</span>
                   </div>
                 )}
 
