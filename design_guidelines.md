@@ -1,7 +1,7 @@
-# PostureSense: Multimodal Communication Analysis App - Design Guidelines
+# ComposureSense: Multimodal Communication Analysis App - Design Guidelines
 
 ## Design Approach
-**Reference-Based Approach**: Direct implementation of the provided PostureSense design mockups. The app prioritizes professional, clinical precision with a clean, accessible interface that builds trust for AI-powered analysis.
+**Reference-Based Approach**: Direct implementation of the provided ComposureSense design mockups. The app prioritizes professional, clinical precision with a clean, accessible interface that builds trust for AI-powered analysis.
 
 ## Core Design Elements
 
@@ -49,7 +49,7 @@
 
 **Header**
 - Fixed blue background (210 85% 45%)
-- White logo and "PostureSense" branding (text-xl, font-semibold)
+- White logo and "ComposureSense" branding (text-xl, font-semibold)
 - Height: h-16
 - Shadow: shadow-md for depth
 
@@ -116,7 +116,7 @@
 ## Page Structure
 
 **Homepage/Analysis View:**
-1. Blue Header with PostureSense branding
+1. Blue Header with ComposureSense branding
 2. Upload Section - 3-column grid of input options
 3. Analysis Results Area (after processing):
    - Overall Score (large, centered)

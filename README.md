@@ -1,8 +1,8 @@
-# PostureSense - Your Personal Body Language Coach
+# ComposureSense - Your Personal Body Language Coach
 
-## What is PostureSense?
+## What is ComposureSense?
 
-PostureSense is like having a friendly coach who helps you improve how you present yourself. Whether you're preparing for a job interview, a presentation, or just want to appear more confident in videos, PostureSense gives you honest feedback about your body language.
+ComposureSense is like having a friendly coach who helps you improve how you present yourself. Whether you're preparing for a job interview, a presentation, or just want to appear more confident in videos, ComposureSense gives you honest feedback about your body language.
 
 ## How Does It Work?
 
@@ -20,7 +20,7 @@ The app looks at things like:
 
 ## What Do You Get?
 
-After analyzing your photo or video, PostureSense gives you:
+After analyzing your photo or video, ComposureSense gives you:
 
 - **An overall score** - A simple number showing how well you're doing
 - **What you're doing great** - Your strengths to keep doing
@@ -45,9 +45,9 @@ Anyone who wants to:
 - Look more professional in video calls
 - Understand what their body language is saying
 
-## Why Use PostureSense?
+## Why Use ComposureSense?
 
-Because first impressions matter! Your body language often speaks louder than your words. PostureSense helps you understand what you're communicating non-verbally and how to improve it - without needing an expensive coach or taking special classes.
+Because first impressions matter! Your body language often speaks louder than your words. ComposureSense helps you understand what you're communicating non-verbally and how to improve it - without needing an expensive coach or taking special classes.
 
 ## Getting Started
 
@@ -55,4 +55,4 @@ Just visit the app, choose how you want to practice (photo, video, or live), and
 
 ---
 
-*Note: PostureSense uses advanced AI technology to analyze your body language, but you don't need to know anything about technology to use it. It's designed to be simple and helpful for everyone.*
+*Note: ComposureSense uses advanced AI technology to analyze your body language, but you don't need to know anything about technology to use it. It's designed to be simple and helpful for everyone.*
