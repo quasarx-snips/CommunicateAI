@@ -44,6 +44,8 @@ export const analyses = pgTable("analyses", {
   fileType: text("file_type").notNull(),
   fileUrl: text("file_url").notNull(),
   result: jsonb("result").notNull().$type<AnalysisResult>(),
+  deviceId: text("device_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const insertAnalysisSchema = createInsertSchema(analyses).pick({
@@ -51,6 +53,7 @@ export const insertAnalysisSchema = createInsertSchema(analyses).pick({
   fileType: true,
   fileUrl: true,
   result: true,
+  deviceId: true,
 });
 
 export const analysisSchema = insertAnalysisSchema.extend({

@@ -5,24 +5,44 @@ interface MetricBarProps {
 }
 
 const colorStyles = {
-  green: "bg-gradient-to-r from-green-400 to-green-500",
-  blue: "bg-gradient-to-r from-blue-400 to-blue-500",
-  orange: "bg-gradient-to-r from-orange-400 to-orange-500",
-  red: "bg-gradient-to-r from-red-400 to-red-500",
+  green: {
+    bar: "bg-gradient-to-r from-green-500 via-green-500 to-emerald-500",
+    glow: "shadow-[0_0_12px_rgba(34,197,94,0.4)]",
+    text: "text-green-600 dark:text-green-400",
+  },
+  blue: {
+    bar: "bg-gradient-to-r from-blue-500 via-blue-500 to-cyan-500",
+    glow: "shadow-[0_0_12px_rgba(59,130,246,0.4)]",
+    text: "text-blue-600 dark:text-blue-400",
+  },
+  orange: {
+    bar: "bg-gradient-to-r from-orange-500 via-orange-500 to-amber-500",
+    glow: "shadow-[0_0_12px_rgba(249,115,22,0.4)]",
+    text: "text-orange-600 dark:text-orange-400",
+  },
+  red: {
+    bar: "bg-gradient-to-r from-red-500 via-red-500 to-rose-500",
+    glow: "shadow-[0_0_12px_rgba(239,68,68,0.4)]",
+    text: "text-red-600 dark:text-red-400",
+  },
 };
 
 export default function MetricBar({ label, value, color = "green" }: MetricBarProps) {
+  const config = colorStyles[color];
+  
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-foreground uppercase tracking-wide">{label}</span>
-        <span className="text-sm font-semibold text-foreground">{value}%</span>
+        <span className="text-sm font-semibold text-foreground tracking-wide">{label}</span>
+        <span className={`text-sm font-bold ${config.text} tabular-nums`}>{value}%</span>
       </div>
-      <div className="w-full h-4 bg-gray-200 rounded-full overflow-hidden">
+      <div className="relative w-full h-3 bg-muted rounded-full overflow-hidden shadow-inner">
         <div
-          className={`h-full ${colorStyles[color]} transition-all duration-1000 ease-out`}
+          className={`absolute inset-y-0 left-0 ${config.bar} ${config.glow} transition-all duration-1000 ease-out rounded-full`}
           style={{ width: `${value}%` }}
-        />
+        >
+          <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 animate-shimmer" />
+        </div>
       </div>
     </div>
   );

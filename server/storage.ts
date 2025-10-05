@@ -45,7 +45,7 @@ export class MemStorage implements IStorage {
       fileType: insertAnalysis.fileType,
       fileUrl: insertAnalysis.fileUrl,
       result: insertAnalysis.result as any,
-      deviceId: insertAnalysis.deviceId,
+      deviceId: insertAnalysis.deviceId ?? null,
       createdAt: new Date(),
     };
     this.analyses.set(id, analysis);
