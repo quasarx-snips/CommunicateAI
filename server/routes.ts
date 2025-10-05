@@ -11,6 +11,29 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Live analysis endpoint (lightweight, faster responses)
+  app.post("/api/analyze-live", upload.single("file"), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      const { buffer, mimetype } = req.file;
+
+      // Simplified prompt for faster live analysis
+      const analysisResult = await analyzeBodyLanguage(buffer, mimetype, "live-frame.jpg");
+
+      // Return only essential feedback for live display
+      res.json({
+        improvements: analysisResult.improvements,
+        metrics: analysisResult.metrics,
+      });
+    } catch (error) {
+      console.error("Live analysis error:", error);
+      res.status(500).json({ error: "Failed to analyze frame" });
+    }
+  });
+
   // Upload and analyze endpoint
   app.post("/api/analyze", upload.single("file"), async (req, res) => {
     try {

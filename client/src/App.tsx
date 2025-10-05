@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import Home from "@/pages/Home";
 import Results from "@/pages/Results";
 import History from "@/pages/History";
+import LiveAnalysis from "@/pages/LiveAnalysis";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -15,6 +16,7 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/results/:id" component={Results} />
       <Route path="/history" component={History} />
+      <Route path="/live" component={LiveAnalysis} />
       <Route component={NotFound} />
     </Switch>
   );

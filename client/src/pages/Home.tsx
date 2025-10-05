@@ -8,6 +8,7 @@ import { useLocation } from "wouter";
 import { analyzeFile } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
+import { Video as VideoIcon } from "lucide-react";
 
 export default function Home() {
   const [, setLocation] = useLocation();
@@ -75,6 +76,30 @@ export default function Home() {
 
         <div className="space-y-4 sm:space-y-6">
           <h2 className="text-xl sm:text-2xl font-bold text-center text-foreground">Get Started</h2>
+          
+          {/* Live Analysis Button */}
+          <div className="max-w-md mx-auto">
+            <Button
+              onClick={() => setLocation("/live")}
+              className="w-full h-auto py-4 sm:py-6 px-6 sm:px-8 text-base sm:text-lg font-semibold bg-green-600 hover:bg-green-700"
+            >
+              <VideoIcon className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3" />
+              Start Live Analysis
+            </Button>
+            <p className="text-xs sm:text-sm text-muted-foreground text-center mt-2">
+              Get real-time feedback on your body language
+            </p>
+          </div>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">Or analyze a file</span>
+            </div>
+          </div>
+
           <div className="max-w-md mx-auto">
             {isAnalyzing ? (
               <Button disabled className="w-full h-auto py-4 sm:py-6 px-6 sm:px-8 text-base sm:text-lg font-semibold">
