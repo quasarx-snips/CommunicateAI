@@ -5,14 +5,29 @@ import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import * as poseDetection from "@tensorflow-models/pose-detection";
+import * as faceLandmarksDetection from "@tensorflow-models/face-landmarks-detection";
 import * as tf from "@tensorflow/tfjs-core";
 import "@tensorflow/tfjs-converter";
 import "@tensorflow/tfjs-backend-webgl";
 import "@tensorflow/tfjs-backend-cpu";
 
+type AnalysisMode = "composure" | "expressions";
+
+interface EmotionData {
+  neutral: number;
+  happy: number;
+  surprise: number;
+  angry: number;
+  disgust: number;
+  fear: number;
+  sad: number;
+}
+
 export default function LiveAnalysis() {
   const [, setLocation] = useLocation();
+  const [mode, setMode] = useState<AnalysisMode>("composure");
   const [isStreaming, setIsStreaming] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -20,13 +35,27 @@ export default function LiveAnalysis() {
   const [metrics, setMetrics] = useState<{ label: string; value: number; color: string }[]>([]);
   const [fps, setFps] = useState(0);
   const [detectorReady, setDetectorReady] = useState(false);
+  const [faceDetectorReady, setFaceDetectorReady] = useState(false);
   const [currentGesture, setCurrentGesture] = useState<string>("Neutral");
+  const [emotions, setEmotions] = useState<EmotionData>({
+    neutral: 0,
+    happy: 0,
+    surprise: 0,
+    angry: 0,
+    disgust: 0,
+    fear: 0,
+    sad: 0
+  });
+  const [age, setAge] = useState<number>(0);
+  const [gender, setGender] = useState<string>("Unknown");
+  const [faceTracking, setFaceTracking] = useState<boolean>(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const detectorRef = useRef<poseDetection.PoseDetector | null>(null);
+  const faceDetectorRef = useRef<faceLandmarksDetection.FaceLandmarksDetector | null>(null);
   const animationRef = useRef<number | null>(null);
   const geminiIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastFrameTimeRef = useRef<number>(0);
@@ -63,6 +92,36 @@ export default function LiveAnalysis() {
       toast({
         title: "Model Loading Failed",
         description: "Could not load pose detection model. Your device may not support this feature.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return false;
+    }
+  };
+
+  const initializeFaceDetector = async () => {
+    try {
+      setIsLoading(true);
+      
+      await tf.ready();
+      
+      const model = faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh;
+      const detectorConfig = {
+        runtime: 'tfjs' as const,
+        refineLandmarks: true,
+      };
+      
+      faceDetectorRef.current = await faceLandmarksDetection.createDetector(model, detectorConfig);
+      setFaceDetectorReady(true);
+      setIsLoading(false);
+      console.log('Face detector initialized successfully');
+      return true;
+    } catch (error) {
+      console.error("Error initializing face detector:", error);
+      setFaceDetectorReady(false);
+      toast({
+        title: "Face Model Loading Failed",
+        description: "Could not load face detection model. Your device may not support this feature.",
         variant: "destructive",
       });
       setIsLoading(false);
@@ -180,7 +239,6 @@ export default function LiveAnalysis() {
     const rightShoulder = getKeypoint("right_shoulder");
     const nose = getKeypoint("nose");
     
-    // Wave detection
     if (rightWrist && rightElbow && rightShoulder && 
         rightWrist.score > 0.5 && rightElbow.score > 0.5 && rightShoulder.score > 0.5) {
       if (rightWrist.y < rightElbow.y && rightWrist.y < rightShoulder.y) {
@@ -195,7 +253,6 @@ export default function LiveAnalysis() {
       }
     }
     
-    // Arms crossed
     if (leftWrist && rightWrist && leftShoulder && rightShoulder &&
         leftWrist.score > 0.5 && rightWrist.score > 0.5) {
       if (leftWrist.x > rightShoulder.x && rightWrist.x < leftShoulder.x) {
@@ -203,7 +260,6 @@ export default function LiveAnalysis() {
       }
     }
     
-    // Hands on hips
     if (leftWrist && rightWrist && leftShoulder && rightShoulder &&
         leftWrist.score > 0.5 && rightWrist.score > 0.5) {
       const leftHip = getKeypoint("left_hip");
@@ -217,7 +273,6 @@ export default function LiveAnalysis() {
       }
     }
     
-    // Thumbs up
     if (rightWrist && rightElbow && rightShoulder &&
         rightWrist.score > 0.5 && rightElbow.score > 0.5) {
       if (rightWrist.y < rightShoulder.y && rightElbow.y < rightShoulder.y) {
@@ -225,7 +280,6 @@ export default function LiveAnalysis() {
       }
     }
     
-    // Thinking pose (hand near face)
     if (nose && rightWrist && rightWrist.score > 0.5 && nose.score > 0.5) {
       const distance = Math.sqrt(Math.pow(nose.x - rightWrist.x, 2) + Math.pow(nose.y - rightWrist.y, 2));
       if (distance < 0.15) {
@@ -240,7 +294,6 @@ export default function LiveAnalysis() {
       }
     }
     
-    // Open arms
     if (leftWrist && rightWrist && leftShoulder && rightShoulder &&
         leftWrist.score > 0.5 && rightWrist.score > 0.5) {
       const armSpan = Math.abs(leftWrist.x - rightWrist.x);
@@ -262,7 +315,6 @@ export default function LiveAnalysis() {
     poses.forEach((pose) => {
       const keypoints = pose.keypoints;
 
-      // Draw mesh-like connections first (background layer)
       const connections = [
         ["nose", "left_eye"],
         ["nose", "right_eye"],
@@ -287,7 +339,6 @@ export default function LiveAnalysis() {
         const endKp = keypoints.find((kp: any) => kp.name === end);
 
         if (startKp && endKp && startKp.score > 0.3 && endKp.score > 0.3) {
-          // Animated gradient line
           const gradient = ctx.createLinearGradient(startKp.x, startKp.y, endKp.x, endKp.y);
           gradient.addColorStop(0, "rgba(59, 130, 246, 0.8)");
           gradient.addColorStop(0.5, "rgba(124, 58, 237, 0.8)");
@@ -305,10 +356,8 @@ export default function LiveAnalysis() {
         }
       });
 
-      // Draw keypoint nodes (foreground layer)
       keypoints.forEach((keypoint: any) => {
         if (keypoint.score > 0.3) {
-          // Outer glow
           ctx.beginPath();
           ctx.arc(keypoint.x, keypoint.y, 8, 0, 2 * Math.PI);
           const glowGradient = ctx.createRadialGradient(
@@ -320,13 +369,11 @@ export default function LiveAnalysis() {
           ctx.fillStyle = glowGradient;
           ctx.fill();
           
-          // Inner core
           ctx.beginPath();
           ctx.arc(keypoint.x, keypoint.y, 4, 0, 2 * Math.PI);
           ctx.fillStyle = keypoint.score > 0.6 ? "#22c55e" : "#f59e0b";
           ctx.fill();
           
-          // Highlight
           ctx.beginPath();
           ctx.arc(keypoint.x - 1, keypoint.y - 1, 2, 0, 2 * Math.PI);
           ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
@@ -334,7 +381,6 @@ export default function LiveAnalysis() {
         }
       });
       
-      // Draw face mesh for facial landmarks
       const faceLandmarks = ["nose", "left_eye", "right_eye", "left_ear", "right_ear"];
       const facePoints = faceLandmarks
         .map(name => keypoints.find((kp: any) => kp.name === name))
@@ -351,6 +397,64 @@ export default function LiveAnalysis() {
           ctx.lineTo(p2.x, p2.y);
         }
         ctx.stroke();
+      }
+    });
+  };
+
+  const drawFaceMesh = (faces: any[], canvas: HTMLCanvasElement) => {
+    const ctx = canvas.getContext("2d");
+    if (!ctx || !faces.length) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    faces.forEach((face) => {
+      const keypoints = face.keypoints;
+      
+      setFaceTracking(true);
+      
+      if (keypoints && keypoints.length > 0) {
+        const xs = keypoints.map((kp: any) => kp.x);
+        const ys = keypoints.map((kp: any) => kp.y);
+        const minX = Math.min(...xs);
+        const maxX = Math.max(...xs);
+        const minY = Math.min(...ys);
+        const maxY = Math.max(...ys);
+        
+        ctx.strokeStyle = "rgba(0, 255, 0, 0.8)";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(minX, minY, maxX - minX, maxY - minY);
+        
+        ctx.strokeStyle = "rgba(0, 255, 0, 0.6)";
+        ctx.lineWidth = 1;
+        
+        for (let i = 0; i < keypoints.length; i++) {
+          const kp = keypoints[i];
+          
+          if (i % 3 === 0 && i + 3 < keypoints.length) {
+            ctx.beginPath();
+            ctx.moveTo(kp.x, kp.y);
+            const nextKp = keypoints[i + 3];
+            ctx.lineTo(nextKp.x, nextKp.y);
+            ctx.stroke();
+          }
+          
+          if (i < 17 && i + 1 < keypoints.length) {
+            ctx.beginPath();
+            ctx.moveTo(kp.x, kp.y);
+            const nextKp = keypoints[i + 1];
+            ctx.lineTo(nextKp.x, nextKp.y);
+            ctx.stroke();
+          }
+        }
+        
+        keypoints.forEach((kp: any, idx: number) => {
+          if (idx % 4 === 0) {
+            ctx.beginPath();
+            ctx.arc(kp.x, kp.y, 2, 0, 2 * Math.PI);
+            ctx.fillStyle = "rgba(0, 255, 0, 0.8)";
+            ctx.fill();
+          }
+        });
       }
     });
   };
@@ -398,6 +502,44 @@ export default function LiveAnalysis() {
     animationRef.current = requestAnimationFrame(detectPoseLoop);
   }, [detectorReady]);
 
+  const detectFaceLoop = useCallback(async () => {
+    if (!videoRef.current || !faceDetectorRef.current || !overlayCanvasRef.current || !faceDetectorReady) {
+      return;
+    }
+
+    const video = videoRef.current;
+    const overlayCanvas = overlayCanvasRef.current;
+
+    if (video.readyState === 4) {
+      overlayCanvas.width = video.videoWidth;
+      overlayCanvas.height = video.videoHeight;
+
+      try {
+        const faces = await faceDetectorRef.current.estimateFaces(video);
+
+        if (faces.length > 0) {
+          drawFaceMesh(faces, overlayCanvas);
+        } else {
+          setFaceTracking(false);
+          const ctx = overlayCanvas.getContext("2d");
+          if (ctx) ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+        }
+
+        const now = performance.now();
+        frameCountRef.current++;
+        if (now - lastFrameTimeRef.current >= 1000) {
+          setFps(frameCountRef.current);
+          frameCountRef.current = 0;
+          lastFrameTimeRef.current = now;
+        }
+      } catch (error) {
+        console.error("Face detection error:", error);
+      }
+    }
+
+    animationRef.current = requestAnimationFrame(detectFaceLoop);
+  }, [faceDetectorReady]);
+
   const sendFrameToGemini = useCallback(async () => {
     if (!videoRef.current || !canvasRef.current || isAnalyzing) return;
 
@@ -418,7 +560,6 @@ export default function LiveAnalysis() {
       try {
         const formData = new FormData();
         formData.append("file", blob, "frame.jpg");
-        formData.append("isLive", "true");
 
         const response = await fetch("/api/analyze-live", {
           method: "POST",
@@ -443,16 +584,77 @@ export default function LiveAnalysis() {
     }, "image/jpeg", 0.85);
   }, [isAnalyzing]);
 
-  const startCamera = async () => {
-    if (!detectorReady) {
-      const initialized = await initializePoseDetector();
-      if (!initialized) {
-        toast({
-          title: "Cannot Start",
-          description: "Pose detection model failed to initialize. Please try refreshing the page.",
-          variant: "destructive",
+  const sendFrameToGeminiExpressions = useCallback(async () => {
+    if (!videoRef.current || !canvasRef.current || isAnalyzing) return;
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const context = canvas.getContext("2d");
+
+    if (!context) return;
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    canvas.toBlob(async (blob) => {
+      if (!blob) return;
+
+      setIsAnalyzing(true);
+      try {
+        const formData = new FormData();
+        formData.append("file", blob, "frame.jpg");
+
+        const response = await fetch("/api/analyze-expressions", {
+          method: "POST",
+          body: formData,
         });
-        return;
+
+        if (response.ok) {
+          const data = await response.json();
+          
+          if (data.emotions) {
+            setEmotions(data.emotions);
+          }
+          if (data.age) {
+            setAge(data.age);
+          }
+          if (data.gender) {
+            setGender(data.gender);
+          }
+        }
+      } catch (error) {
+        console.error("Gemini expression analysis error:", error);
+      } finally {
+        setIsAnalyzing(false);
+      }
+    }, "image/jpeg", 0.85);
+  }, [isAnalyzing]);
+
+  const startCamera = async () => {
+    if (mode === "composure") {
+      if (!detectorReady) {
+        const initialized = await initializePoseDetector();
+        if (!initialized) {
+          toast({
+            title: "Cannot Start",
+            description: "Pose detection model failed to initialize. Please try refreshing the page.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+    } else {
+      if (!faceDetectorReady) {
+        const initialized = await initializeFaceDetector();
+        if (!initialized) {
+          toast({
+            title: "Cannot Start",
+            description: "Face detection model failed to initialize. Please try refreshing the page.",
+            variant: "destructive",
+          });
+          return;
+        }
       }
     }
 
@@ -462,18 +664,24 @@ export default function LiveAnalysis() {
         audio: false,
       });
 
-      if (videoRef.current && detectorReady) {
+      if (videoRef.current) {
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
         setIsStreaming(true);
 
         videoRef.current.onloadeddata = () => {
-          detectPoseLoop();
+          if (mode === "composure" && detectorReady) {
+            detectPoseLoop();
+            geminiIntervalRef.current = setInterval(() => {
+              sendFrameToGemini();
+            }, 15000);
+          } else if (mode === "expressions" && faceDetectorReady) {
+            detectFaceLoop();
+            geminiIntervalRef.current = setInterval(() => {
+              sendFrameToGeminiExpressions();
+            }, 3000);
+          }
         };
-
-        geminiIntervalRef.current = setInterval(() => {
-          sendFrameToGemini();
-        }, 15000);
       }
     } catch (error) {
       toast({
@@ -501,23 +709,63 @@ export default function LiveAnalysis() {
     setFeedback([]);
     setMetrics([]);
     setFps(0);
+    setFaceTracking(false);
+  };
+
+  const switchMode = (newMode: AnalysisMode) => {
+    stopCamera();
+    setMode(newMode);
   };
 
   useEffect(() => {
-    initializePoseDetector();
+    if (mode === "composure") {
+      initializePoseDetector();
+    } else {
+      initializeFaceDetector();
+    }
+    
     return () => {
       stopCamera();
       if (detectorRef.current) {
         detectorRef.current.dispose();
       }
+      if (faceDetectorRef.current) {
+        faceDetectorRef.current.dispose();
+      }
     };
-  }, []);
+  }, [mode]);
+
+  const getEmotionColor = (emotion: string, value: number) => {
+    if (value === 0) return "bg-gray-800 dark:bg-gray-900";
+    
+    switch (emotion.toLowerCase()) {
+      case "happy":
+        return "bg-green-500";
+      case "surprise":
+        return "bg-blue-500";
+      case "angry":
+        return "bg-red-500";
+      case "disgust":
+        return "bg-purple-500";
+      case "fear":
+        return "bg-yellow-500";
+      case "sad":
+        return "bg-cyan-500";
+      default:
+        return "bg-gray-500";
+    }
+  };
+
+  const maxEmotion = Object.entries(emotions).reduce((max, [key, value]) => 
+    value > max.value ? { emotion: key, value } : max, 
+    { emotion: "", value: 0 }
+  );
 
   return (
     <div className="min-h-screen bg-background">
       <Header />
 
-      <main className="container mx-auto px-4 py-6 max-w-6xl">
+      <main className="container mx-auto px-4 py-6 max-w-7xl">
         <div className="mb-6 flex items-center justify-between">
           <Button
             variant="ghost"
@@ -540,8 +788,21 @@ export default function LiveAnalysis() {
         </div>
 
         <h1 className="text-3xl font-bold text-foreground mb-6 text-center">
-          Live Body Language Analysis
+          Live Analysis
         </h1>
+
+        <div className="mb-6 flex justify-center">
+          <Tabs value={mode} onValueChange={(value) => switchMode(value as AnalysisMode)}>
+            <TabsList className="grid w-full max-w-md grid-cols-2">
+              <TabsTrigger value="composure" data-testid="tab-composure">
+                Composure
+              </TabsTrigger>
+              <TabsTrigger value="expressions" data-testid="tab-expressions">
+                Expressions
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
@@ -558,7 +819,7 @@ export default function LiveAnalysis() {
                 <canvas
                   ref={overlayCanvasRef}
                   className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-                  data-testid="pose-overlay-canvas"
+                  data-testid="overlay-canvas"
                 />
                 <canvas ref={canvasRef} className="hidden" />
 
@@ -569,7 +830,7 @@ export default function LiveAnalysis() {
                   </div>
                 )}
                 
-                {isStreaming && currentGesture !== "Neutral" && (
+                {isStreaming && mode === "composure" && currentGesture !== "Neutral" && (
                   <div className="absolute top-4 left-4 bg-purple-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-xl animate-pulse">
                     <span className="text-lg">{currentGesture}</span>
                   </div>
@@ -616,64 +877,124 @@ export default function LiveAnalysis() {
           </div>
 
           <div className="space-y-4">
-            <Card className="p-4">
-              <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                Live Feedback
-              </h2>
-              <div data-testid="live-feedback-list">
-                {feedback.length > 0 ? (
-                  <ul className="space-y-2">
-                    {feedback.map((item, index) => (
-                      <li
-                        key={index}
-                        className="flex items-start gap-2 text-sm leading-relaxed"
-                      >
-                        <span className="text-orange-500 mt-0.5 flex-shrink-0">⚠️</span>
-                        <span className="text-muted-foreground">{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    {isStreaming
-                      ? "Analyzing your body language..."
-                      : "Start the camera to get live feedback"}
-                  </p>
-                )}
-              </div>
-            </Card>
+            {mode === "composure" ? (
+              <>
+                <Card className="p-4">
+                  <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    Live Feedback
+                  </h2>
+                  <div data-testid="live-feedback-list">
+                    {feedback.length > 0 ? (
+                      <ul className="space-y-2">
+                        {feedback.map((item, index) => (
+                          <li
+                            key={index}
+                            className="flex items-start gap-2 text-sm leading-relaxed"
+                          >
+                            <span className="text-orange-500 mt-0.5 flex-shrink-0">⚠️</span>
+                            <span className="text-muted-foreground">{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        {isStreaming ? "Analysis in progress..." : "Start camera to begin"}
+                      </p>
+                    )}
+                  </div>
+                </Card>
 
-            <Card className="p-4">
-              <h2 className="text-lg font-semibold mb-3">Current Metrics</h2>
-              <div data-testid="live-metrics-list">
-                {metrics.length > 0 ? (
-                  <div className="space-y-3">
-                    {metrics.map((metric, index) => (
-                      <div key={index} data-testid={`metric-${metric.label.toLowerCase().replace(/\s+/g, '-')}`}>
-                        <div className="flex justify-between text-sm mb-1.5">
-                          <span className="text-foreground">{metric.label}</span>
-                          <span className="font-semibold" style={{ color: metric.color }}>
-                            {metric.value}%
+                <Card className="p-4">
+                  <h2 className="text-lg font-semibold mb-3">Posture Metrics</h2>
+                  <div className="space-y-3" data-testid="posture-metrics-list">
+                    {metrics.length > 0 ? (
+                      metrics.map((metric, index) => (
+                        <div key={index}>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="text-muted-foreground">{metric.label}</span>
+                            <span className="font-semibold" style={{ color: metric.color }}>
+                              {metric.value}%
+                            </span>
+                          </div>
+                          <div className="w-full bg-muted rounded-full h-2">
+                            <div
+                              className="h-2 rounded-full transition-all duration-500"
+                              style={{
+                                width: `${metric.value}%`,
+                                backgroundColor: metric.color,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        {isStreaming ? "Calculating metrics..." : "Start camera to see metrics"}
+                      </p>
+                    )}
+                  </div>
+                </Card>
+              </>
+            ) : (
+              <>
+                <Card className="p-4 bg-black/90 dark:bg-black/95 text-white">
+                  <h2 className="text-lg font-semibold mb-3">Emotion Analysis</h2>
+                  <div className="space-y-2" data-testid="emotion-analysis-list">
+                    {Object.entries(emotions).map(([emotion, value]) => (
+                      <div key={emotion}>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className={`capitalize ${maxEmotion.emotion === emotion && value > 0 ? 'text-white font-semibold' : 'text-gray-400'}`}>
+                            {emotion.charAt(0).toUpperCase() + emotion.slice(1)}
+                          </span>
+                          <span className={maxEmotion.emotion === emotion && value > 0 ? 'text-white font-bold' : 'text-gray-400'}>
+                            {value} %
                           </span>
                         </div>
-                        <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div className="w-full bg-gray-800 dark:bg-gray-900 rounded-full h-2">
                           <div
-                            className="h-full transition-all duration-300 ease-out rounded-full"
-                            style={{
-                              width: `${metric.value}%`,
-                              backgroundColor: metric.color,
-                            }}
+                            className={`h-2 rounded-full transition-all duration-500 ${getEmotionColor(emotion, value)}`}
+                            style={{ width: `${value}%` }}
                           />
                         </div>
                       </div>
                     ))}
                   </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">Metrics will appear here</p>
-                )}
-              </div>
-            </Card>
+                </Card>
+
+                <Card className="p-4 bg-black/90 dark:bg-black/95 text-white">
+                  <h2 className="text-lg font-semibold mb-3">Status:</h2>
+                  <div className="space-y-2 text-sm" data-testid="status-info">
+                    <div className="flex items-start gap-2">
+                      <span className="text-gray-400">*</span>
+                      <span className="text-gray-300">Source: Webcam</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="text-gray-400">*</span>
+                      <span className="text-gray-300">Player: {isStreaming ? "Playing" : "Stopped"}</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="text-gray-400">*</span>
+                      <span className="text-gray-300">Face: {faceTracking ? "Tracking" : "Not Detected"}</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="text-gray-400">*</span>
+                      <span className="text-gray-300">Markers: Scale to face</span>
+                    </div>
+                  </div>
+                  {age > 0 && (
+                    <div className="mt-4 pt-4 border-t border-gray-700">
+                      <div className="text-sm text-gray-300">
+                        <span className="font-semibold">Age Estimate:</span> {age} years
+                      </div>
+                      <div className="text-sm text-gray-300 mt-1">
+                        <span className="font-semibold">Gender:</span> {gender}
+                      </div>
+                    </div>
+                  )}
+                </Card>
+              </>
+            )}
           </div>
         </div>
       </main>
