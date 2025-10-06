@@ -12,6 +12,7 @@ import * as tf from "@tensorflow/tfjs-core";
 import "@tensorflow/tfjs-converter";
 import "@tensorflow/tfjs-backend-webgl";
 import "@tensorflow/tfjs-backend-cpu";
+import { getComposureAdjective } from "@/utils/adjectives";
 
 type AnalysisMode = "composure" | "expressions";
 
@@ -37,6 +38,8 @@ export default function LiveAnalysis() {
   const [detectorReady, setDetectorReady] = useState(false);
   const [faceDetectorReady, setFaceDetectorReady] = useState(false);
   const [currentGesture, setCurrentGesture] = useState<string>("Neutral");
+  const [currentAdjective, setCurrentAdjective] = useState<string>("Neutral");
+  const [composureScore, setComposureScore] = useState<number>(0);
   const [emotions, setEmotions] = useState<EmotionData>({
     neutral: 0,
     happy: 0,
@@ -139,93 +142,149 @@ export default function LiveAnalysis() {
     const rightEye = getKeypoint("right_eye");
     const leftHip = getKeypoint("left_hip");
     const rightHip = getKeypoint("right_hip");
+    const leftEar = getKeypoint("left_ear");
+    const rightEar = getKeypoint("right_ear");
 
     const metrics: { label: string; value: number; color: string }[] = [];
     const feedbackMessages: string[] = [];
 
-    if (leftShoulder && rightShoulder && leftShoulder.score > 0.3 && rightShoulder.score > 0.3) {
-      const shoulderDiff = Math.abs(leftShoulder.y - rightShoulder.y);
-      const shoulderAlignment = Math.max(0, 1 - shoulderDiff * 2) * 100;
+    // 1. SPINAL ALIGNMENT - Based on research paper's postural biomechanics
+    if (leftShoulder && rightShoulder && leftHip && rightHip && 
+        leftShoulder.score > 0.4 && rightShoulder.score > 0.4 && 
+        leftHip.score > 0.4 && rightHip.score > 0.4) {
+      
+      const shoulderMid = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
+      const hipMid = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
+      
+      // Calculate spinal alignment (vertical alignment between shoulders and hips)
+      const spineDeviation = Math.abs(shoulderMid.x - hipMid.x);
+      const spinalAlignment = Math.max(0, (1 - spineDeviation * 2.5)) * 100;
 
       metrics.push({
-        label: "Posture Alignment",
-        value: Math.round(shoulderAlignment),
-        color: shoulderAlignment > 70 ? "hsl(140 60% 45%)" : "hsl(30 90% 55%)",
+        label: "Spinal Alignment",
+        value: Math.round(spinalAlignment),
+        color: spinalAlignment > 75 ? "hsl(140 60% 45%)" : spinalAlignment > 50 ? "hsl(30 90% 55%)" : "hsl(0 80% 50%)",
       });
 
-      if (shoulderAlignment < 70) {
-        feedbackMessages.push("Straighten your shoulders - they appear uneven");
+      if (spinalAlignment < 75) {
+        feedbackMessages.push("Center your body - align spine over hips");
       }
     }
 
-    if (nose && leftEye && rightEye && nose.score > 0.4) {
-      const eyeCenter = {
-        x: (leftEye.x + rightEye.x) / 2,
-        y: (leftEye.y + rightEye.y) / 2,
-      };
+    // 2. SHOULDER POSITIONING - Level shoulders indicate confidence
+    if (leftShoulder && rightShoulder && leftShoulder.score > 0.4 && rightShoulder.score > 0.4) {
+      const shoulderDiff = Math.abs(leftShoulder.y - rightShoulder.y);
+      const shoulderLevelness = Math.max(0, (1 - shoulderDiff * 3)) * 100;
+
+      metrics.push({
+        label: "Shoulder Position",
+        value: Math.round(shoulderLevelness),
+        color: shoulderLevelness > 80 ? "hsl(140 60% 45%)" : shoulderLevelness > 60 ? "hsl(30 90% 55%)" : "hsl(0 80% 50%)",
+      });
+
+      if (shoulderLevelness < 80) {
+        feedbackMessages.push("Level your shoulders - appears more professional");
+      }
+
+      // Shoulder openness (rolled back vs hunched forward)
+      const shoulderWidth = Math.abs(leftShoulder.x - rightShoulder.x);
+      if (leftHip && rightHip) {
+        const hipWidth = Math.abs(leftHip.x - rightHip.x);
+        const shoulderOpenness = Math.min(100, (shoulderWidth / hipWidth) * 85);
+
+        metrics.push({
+          label: "Shoulder Openness",
+          value: Math.round(shoulderOpenness),
+          color: shoulderOpenness > 80 ? "hsl(140 60% 45%)" : shoulderOpenness > 60 ? "hsl(30 90% 55%)" : "hsl(0 80% 50%)",
+        });
+
+        if (shoulderOpenness < 80) {
+          feedbackMessages.push("Roll shoulders back - project confidence");
+        }
+      }
+    }
+
+    // 3. HEAD POSITION AND STABILITY - Critical for professional presence
+    if (nose && leftEye && rightEye && nose.score > 0.5) {
+      const eyeCenter = { x: (leftEye.x + rightEye.x) / 2, y: (leftEye.y + rightEye.y) / 2 };
+      
+      // Head tilt (should be minimal)
       const headTilt = Math.abs(nose.x - eyeCenter.x);
-      const headStability = Math.max(0, 1 - headTilt * 3) * 100;
+      const headStability = Math.max(0, (1 - headTilt * 4)) * 100;
 
       metrics.push({
         label: "Head Stability",
         value: Math.round(headStability),
-        color: headStability > 70 ? "hsl(140 60% 45%)" : "hsl(30 90% 55%)",
+        color: headStability > 80 ? "hsl(140 60% 45%)" : headStability > 60 ? "hsl(30 90% 55%)" : "hsl(0 80% 50%)",
       });
 
-      if (headStability < 70) {
-        feedbackMessages.push("Keep your head centered and steady");
+      if (headStability < 80) {
+        feedbackMessages.push("Keep head steady and centered");
+      }
+
+      // Head orientation (forward facing)
+      if (leftShoulder && rightShoulder) {
+        const shoulderMid = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
+        const headForwardness = Math.max(0, 100 - Math.abs((nose.x - shoulderMid.x) * 200));
+
+        metrics.push({
+          label: "Head Orientation",
+          value: Math.round(headForwardness),
+          color: headForwardness > 75 ? "hsl(140 60% 45%)" : headForwardness > 50 ? "hsl(30 90% 55%)" : "hsl(0 80% 50%)",
+        });
+
+        if (headForwardness < 75) {
+          feedbackMessages.push("Face the camera directly");
+        }
       }
     }
 
-    if (leftShoulder && rightShoulder && nose && leftShoulder.score > 0.3 && rightShoulder.score > 0.3 && nose.score > 0.4) {
-      const shoulderMid = {
-        x: (leftShoulder.x + rightShoulder.x) / 2,
-        y: (leftShoulder.y + rightShoulder.y) / 2,
-      };
-      const spineAngle = Math.atan2(nose.y - shoulderMid.y, nose.x - shoulderMid.x);
-      const uprightness = Math.abs(Math.cos(spineAngle)) * 100;
+    // 4. OVERALL UPRIGHTNESS - Body angle indicates engagement
+    if (leftShoulder && rightShoulder && leftHip && rightHip && nose &&
+        leftShoulder.score > 0.4 && rightShoulder.score > 0.4 && nose.score > 0.5) {
+      
+      const shoulderMid = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
+      const hipMid = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
+      
+      // Calculate angle from vertical
+      const bodyAngle = Math.atan2(shoulderMid.y - hipMid.y, shoulderMid.x - hipMid.x);
+      const uprightness = Math.abs(Math.sin(bodyAngle)) * 100;
 
       metrics.push({
         label: "Body Uprightness",
         value: Math.round(uprightness),
-        color: uprightness > 75 ? "hsl(140 60% 45%)" : "hsl(30 90% 55%)",
+        color: uprightness > 85 ? "hsl(140 60% 45%)" : uprightness > 70 ? "hsl(30 90% 55%)" : "hsl(0 80% 50%)",
       });
 
-      if (uprightness < 75) {
-        feedbackMessages.push("Sit up straighter - improve your posture");
+      if (uprightness < 85) {
+        feedbackMessages.push("Sit/stand more upright - shows engagement");
       }
     }
 
-    if (leftShoulder && rightShoulder && leftHip && rightHip) {
-      const shoulderWidth = Math.abs(leftShoulder.x - rightShoulder.x);
-      const hipWidth = Math.abs(leftHip.x - rightHip.x);
-      const openness = Math.min(1, shoulderWidth / hipWidth) * 100;
-
-      metrics.push({
-        label: "Body Openness",
-        value: Math.round(openness),
-        color: openness > 80 ? "hsl(140 60% 45%)" : "hsl(210 85% 55%)",
-      });
-
-      if (openness < 80) {
-        feedbackMessages.push("Open up your posture - appear more confident");
-      }
-    }
-
+    // 5. PROFESSIONAL PRESENCE SCORE - Overall composure indicator
     const avgConfidence = keypoints.reduce((sum, kp) => sum + kp.score, 0) / keypoints.length;
     const visibility = avgConfidence * 100;
 
     metrics.push({
-      label: "Visibility Score",
+      label: "Detection Quality",
       value: Math.round(visibility),
-      color: visibility > 70 ? "hsl(140 60% 45%)" : "hsl(30 90% 55%)",
+      color: visibility > 70 ? "hsl(140 60% 45%)" : visibility > 50 ? "hsl(30 90% 55%)" : "hsl(0 80% 50%)",
     });
 
     if (visibility < 70) {
-      feedbackMessages.push("Ensure good lighting and face the camera directly");
+      feedbackMessages.push("Improve lighting and positioning");
     }
 
-    return { metrics, feedback: feedbackMessages.slice(0, 3) };
+    // Calculate overall composure score
+    const avgScore = metrics.length > 0 
+      ? metrics.reduce((sum, m) => sum + m.value, 0) / metrics.length 
+      : 0;
+
+    return { 
+      metrics, 
+      feedback: feedbackMessages.slice(0, 4),
+      composureScore: Math.round(avgScore)
+    };
   };
 
   const detectGesture = (keypoints: any[]): string => {
