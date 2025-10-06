@@ -69,6 +69,7 @@ export default function LiveAnalysis() {
   const metricsHistoryRef = useRef<Array<{ label: string; value: number; color: string }[]>>([]);
   const scoreHistoryRef = useRef<number[]>([]);
   const adjectiveStableRef = useRef<{ adjective: string; score: number }>({ adjective: "Neutral", score: 0 });
+  const frameSkipCounterRef = useRef(0);
   
   const { toast } = useToast();
 
@@ -816,33 +817,40 @@ export default function LiveAnalysis() {
           }
         } else if (mode === "composure") {
           if (!detectorRef.current || !detectorReady) return;
-          const poses = await detectorRef.current.estimatePoses(video, {
-            flipHorizontal: false,
-          });
+          
+          // Smart frame skipping: process every 2nd frame when stable for better performance
+          const shouldProcess = !isStable || frameSkipCounterRef.current % 2 === 0;
+          frameSkipCounterRef.current++;
+          
+          if (shouldProcess) {
+            const poses = await detectorRef.current.estimatePoses(video, {
+              flipHorizontal: false,
+            });
 
-          if (poses && poses.length > 0) {
-            const { metrics: rawMetrics, feedback: newFeedback, composureScore: rawScore } = calculatePostureMetrics(
-              poses[0].keypoints
-            );
-            
-            // Apply smoothing for stability
-            const smoothedMetrics = smoothMetrics(rawMetrics);
-            const smoothedScore = smoothComposureScore(rawScore);
-            const { adjective: stableAdjective, isStable: readingIsStable } = getStableAdjective(smoothedScore);
-            
-            setMetrics(smoothedMetrics);
-            setFeedback(newFeedback);
-            setComposureScore(smoothedScore);
-            setCurrentAdjective(stableAdjective);
-            setIsStable(readingIsStable && metricsHistoryRef.current.length >= 5);
+            if (poses && poses.length > 0) {
+              const { metrics: rawMetrics, feedback: newFeedback, composureScore: rawScore } = calculatePostureMetrics(
+                poses[0].keypoints
+              );
+              
+              // Apply smoothing for stability
+              const smoothedMetrics = smoothMetrics(rawMetrics);
+              const smoothedScore = smoothComposureScore(rawScore);
+              const { adjective: stableAdjective, isStable: readingIsStable } = getStableAdjective(smoothedScore);
+              
+              setMetrics(smoothedMetrics);
+              setFeedback(newFeedback);
+              setComposureScore(smoothedScore);
+              setCurrentAdjective(stableAdjective);
+              setIsStable(readingIsStable && metricsHistoryRef.current.length >= 5);
 
-            drawComposureAnalysis(poses, overlayCanvas, stableAdjective);
+              drawComposureAnalysis(poses, overlayCanvas, stableAdjective);
 
-            const gesture = detectGesture(poses[0].keypoints);
-            setCurrentGesture(gesture);
-          } else {
-            const ctx = overlayCanvas.getContext("2d");
-            if (ctx) ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+              const gesture = detectGesture(poses[0].keypoints);
+              setCurrentGesture(gesture);
+            } else {
+              const ctx = overlayCanvas.getContext("2d");
+              if (ctx) ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+            }
           }
         }
 
