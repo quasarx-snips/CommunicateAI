@@ -518,8 +518,8 @@ export default function LiveAnalysis() {
     });
   };
 
-  // New function to draw bounding boxes for poses
-  const drawPoseBoundingBox = (poses: any[], canvas: HTMLCanvasElement) => {
+  // Enhanced composure visualization with skeletal overlay and face box
+  const drawComposureAnalysis = (poses: any[], canvas: HTMLCanvasElement, adjective: string) => {
     const ctx = canvas.getContext("2d");
     if (!ctx || !poses.length) return;
 
@@ -527,21 +527,98 @@ export default function LiveAnalysis() {
 
     poses.forEach((pose) => {
       const keypoints = pose.keypoints;
-      const validKeypoints = keypoints.filter((kp: any) => kp.score > 0.3);
+      const getKeypoint = (name: string) => keypoints.find((kp: any) => kp.name === name);
 
-      if (validKeypoints.length === 0) return;
+      // Draw skeletal connections
+      const connections = [
+        ["nose", "left_eye"],
+        ["nose", "right_eye"],
+        ["left_eye", "left_ear"],
+        ["right_eye", "right_ear"],
+        ["left_shoulder", "right_shoulder"],
+        ["left_shoulder", "left_elbow"],
+        ["right_shoulder", "right_elbow"],
+        ["left_elbow", "left_wrist"],
+        ["right_elbow", "right_wrist"],
+        ["left_shoulder", "left_hip"],
+        ["right_shoulder", "right_hip"],
+        ["left_hip", "right_hip"],
+        ["left_hip", "left_knee"],
+        ["right_hip", "right_knee"],
+        ["left_knee", "left_ankle"],
+        ["right_knee", "right_ankle"],
+      ];
 
-      const xs = validKeypoints.map((kp: any) => kp.x);
-      const ys = validKeypoints.map((kp: any) => kp.y);
-      const minX = Math.min(...xs);
-      const maxX = Math.max(...xs);
-      const minY = Math.min(...ys);
-      const maxY = Math.max(...ys);
+      // Draw skeletal lines
+      connections.forEach(([start, end]) => {
+        const startKp = getKeypoint(start);
+        const endKp = getKeypoint(end);
 
-      // Draw bounding box
-      ctx.strokeStyle = "rgba(59, 130, 246, 0.8)"; // Blue color
-      ctx.lineWidth = 2;
-      ctx.strokeRect(minX, minY, maxX - minX, maxY - minY);
+        if (startKp && endKp && startKp.score > 0.3 && endKp.score > 0.3) {
+          ctx.beginPath();
+          ctx.moveTo(startKp.x, startKp.y);
+          ctx.lineTo(endKp.x, endKp.y);
+          ctx.strokeStyle = "rgba(34, 197, 94, 0.7)"; // Green
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+      });
+
+      // Draw keypoints
+      keypoints.forEach((keypoint: any) => {
+        if (keypoint.score > 0.3) {
+          ctx.beginPath();
+          ctx.arc(keypoint.x, keypoint.y, 5, 0, 2 * Math.PI);
+          ctx.fillStyle = keypoint.score > 0.6 ? "rgba(34, 197, 94, 0.8)" : "rgba(251, 191, 36, 0.8)";
+          ctx.fill();
+        }
+      });
+
+      // Calculate face bounding box
+      const faceLandmarks = ["nose", "left_eye", "right_eye", "left_ear", "right_ear"];
+      const facePoints = faceLandmarks
+        .map(name => getKeypoint(name))
+        .filter(kp => kp && kp.score > 0.4);
+
+      if (facePoints.length >= 3) {
+        const faceXs = facePoints.map((kp: any) => kp.x);
+        const faceYs = facePoints.map((kp: any) => kp.y);
+        const faceMinX = Math.min(...faceXs);
+        const faceMaxX = Math.max(...faceXs);
+        const faceMinY = Math.min(...faceYs);
+        const faceMaxY = Math.max(...faceYs);
+
+        // Add padding to face box
+        const padding = 20;
+        const boxX = faceMinX - padding;
+        const boxY = faceMinY - padding;
+        const boxWidth = (faceMaxX - faceMinX) + (padding * 2);
+        const boxHeight = (faceMaxY - faceMinY) + (padding * 2);
+
+        // Draw face bounding box
+        ctx.strokeStyle = "rgba(59, 130, 246, 0.9)";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+
+        // Draw adjective label above face box
+        ctx.font = "bold 18px Inter, system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "bottom";
+        
+        // Background for text
+        const textMetrics = ctx.measureText(adjective);
+        const textWidth = textMetrics.width + 20;
+        const textHeight = 30;
+        const textX = boxX + boxWidth / 2;
+        const textY = boxY - 10;
+
+        ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
+        ctx.fillRect(textX - textWidth / 2, textY - textHeight, textWidth, textHeight);
+
+        // Draw text
+        ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+        ctx.fillText(adjective, textX, textY - 7);
+      }
     });
   };
 
@@ -580,12 +657,17 @@ export default function LiveAnalysis() {
           });
 
           if (poses && poses.length > 0) {
-            drawPoseBoundingBox(poses, overlayCanvas);
-            const { metrics: newMetrics, feedback: newFeedback } = calculatePostureMetrics(
+            const { metrics: newMetrics, feedback: newFeedback, composureScore } = calculatePostureMetrics(
               poses[0].keypoints
             );
             setMetrics(newMetrics);
             setFeedback(newFeedback);
+            setComposureScore(composureScore);
+
+            const adjective = getComposureAdjective(composureScore);
+            setCurrentAdjective(adjective);
+
+            drawComposureAnalysis(poses, overlayCanvas, adjective);
 
             const gesture = detectGesture(poses[0].keypoints);
             setCurrentGesture(gesture);
