@@ -108,6 +108,12 @@ Preferred communication style: Simple, everyday language.
 
 **Modular Analysis Modes**: The application supports multiple analysis modes with mode-specific optimizations:
 - **Static Upload Mode**: Comprehensive body language analysis of images, videos, or audio files using Gemini AI for detailed insights
-- **Live Composure Mode**: Real-time posture and gesture analysis using TensorFlow.js pose detection with periodic Gemini feedback
+- **Live Composure Mode**: Real-time posture and gesture analysis using only TensorFlow.js (MoveNet model) with research-based biomechanics assessment. Features include:
+  - Skeletal overlay visualization showing body pose with connecting lines
+  - Face-only bounding box with descriptive adjective display (selected from 500+ adjectives based on composure score)
+  - Enhanced metrics based on academic research: Spinal Alignment, Shoulder Position & Openness, Head Stability & Orientation, Body Uprightness, and Detection Quality
+  - Overall composure score (0-100%) calculated from multiple postural biomechanics indicators
+  - Real-time gesture recognition (waving, crossed arms, hands on hips, thinking pose, etc.)
+  - No server-side AI calls - all processing happens client-side for instant feedback
 - **Live Expressions Mode**: Real-time facial expression recognition with emotion percentages, age estimation, and face mesh visualization. Uses MediaPipe FaceMesh for client-side landmark detection and Gemini AI for emotion analysis every 3 seconds
 - Each mode features robust error handling that clears stale data and provides user feedback through toast notifications when analysis fails
