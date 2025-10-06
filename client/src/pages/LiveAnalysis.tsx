@@ -622,14 +622,53 @@ export default function LiveAnalysis() {
           if (data.gender) {
             setGender(data.gender);
           }
+        } else {
+          const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
+          console.error("Expression analysis failed:", errorData);
+          
+          setEmotions({
+            neutral: 0,
+            happy: 0,
+            surprise: 0,
+            angry: 0,
+            disgust: 0,
+            fear: 0,
+            sad: 0
+          });
+          setAge(0);
+          setGender("Unknown");
+          
+          toast({
+            title: "Analysis Error",
+            description: "Failed to analyze facial expressions. Please try again.",
+            variant: "destructive",
+          });
         }
       } catch (error) {
         console.error("Gemini expression analysis error:", error);
+        
+        setEmotions({
+          neutral: 0,
+          happy: 0,
+          surprise: 0,
+          angry: 0,
+          disgust: 0,
+          fear: 0,
+          sad: 0
+        });
+        setAge(0);
+        setGender("Unknown");
+        
+        toast({
+          title: "Connection Error",
+          description: "Could not connect to analysis service.",
+          variant: "destructive",
+        });
       } finally {
         setIsAnalyzing(false);
       }
     }, "image/jpeg", 0.85);
-  }, [isAnalyzing]);
+  }, [isAnalyzing, toast]);
 
   const startCamera = async () => {
     if (mode === "composure") {
@@ -940,26 +979,32 @@ export default function LiveAnalysis() {
               <>
                 <Card className="p-4 bg-black/90 dark:bg-black/95 text-white">
                   <h2 className="text-lg font-semibold mb-3">Emotion Analysis</h2>
-                  <div className="space-y-2" data-testid="emotion-analysis-list">
-                    {Object.entries(emotions).map(([emotion, value]) => (
-                      <div key={emotion}>
-                        <div className="flex justify-between text-sm mb-1">
-                          <span className={`capitalize ${maxEmotion.emotion === emotion && value > 0 ? 'text-white font-semibold' : 'text-gray-400'}`}>
-                            {emotion.charAt(0).toUpperCase() + emotion.slice(1)}
-                          </span>
-                          <span className={maxEmotion.emotion === emotion && value > 0 ? 'text-white font-bold' : 'text-gray-400'}>
-                            {value} %
-                          </span>
+                  {maxEmotion.value === 0 ? (
+                    <div className="text-sm text-gray-400 py-4 text-center" data-testid="no-emotion-data">
+                      {isStreaming ? "Analyzing expressions..." : "Start camera to begin"}
+                    </div>
+                  ) : (
+                    <div className="space-y-2" data-testid="emotion-analysis-list">
+                      {Object.entries(emotions).map(([emotion, value]) => (
+                        <div key={emotion}>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className={`capitalize ${maxEmotion.emotion === emotion && value > 0 ? 'text-white font-semibold' : 'text-gray-400'}`}>
+                              {emotion.charAt(0).toUpperCase() + emotion.slice(1)}
+                            </span>
+                            <span className={maxEmotion.emotion === emotion && value > 0 ? 'text-white font-bold' : 'text-gray-400'}>
+                              {value} %
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-800 dark:bg-gray-900 rounded-full h-2">
+                            <div
+                              className={`h-2 rounded-full transition-all duration-500 ${getEmotionColor(emotion, value)}`}
+                              style={{ width: `${value}%` }}
+                            />
+                          </div>
                         </div>
-                        <div className="w-full bg-gray-800 dark:bg-gray-900 rounded-full h-2">
-                          <div
-                            className={`h-2 rounded-full transition-all duration-500 ${getEmotionColor(emotion, value)}`}
-                            style={{ width: `${value}%` }}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </Card>
 
                 <Card className="p-4 bg-black/90 dark:bg-black/95 text-white">

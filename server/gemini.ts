@@ -295,26 +295,6 @@ Analyze this image for facial expressions, emotions, and age. Provide precise em
     }
   } catch (error) {
     console.error("Gemini facial analysis error:", error);
-    // Return default values on error
-    return {
-      emotions: {
-        neutral: 100,
-        happy: 0,
-        surprise: 0,
-        angry: 0,
-        disgust: 0,
-        fear: 0,
-        sad: 0
-      },
-      age: 0,
-      gender: "Unknown",
-      faceDetected: false,
-      status: {
-        source: "Webcam",
-        player: "Error",
-        face: "Not Detected",
-        markers: "N/A"
-      }
-    };
+    throw new Error(`Failed to analyze facial expressions: ${error}`);
   }
 }
