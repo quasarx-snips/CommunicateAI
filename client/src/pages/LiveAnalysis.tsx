@@ -49,7 +49,7 @@ export default function LiveAnalysis() {
   const [age, setAge] = useState<number>(0);
   const [gender, setGender] = useState<string>("Unknown");
   const [faceTracking, setFaceTracking] = useState<boolean>(false);
-  
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -65,9 +65,9 @@ export default function LiveAnalysis() {
   const initializePoseDetector = async () => {
     try {
       setIsLoading(true);
-      
+
       await tf.ready();
-      
+
       try {
         await tf.setBackend('webgl');
         console.log('Using WebGL backend');
@@ -75,12 +75,12 @@ export default function LiveAnalysis() {
         console.warn('WebGL backend failed, falling back to CPU');
         await tf.setBackend('cpu');
       }
-      
+
       const model = poseDetection.SupportedModels.MoveNet;
       const detectorConfig = {
         modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
       };
-      
+
       detectorRef.current = await poseDetection.createDetector(model, detectorConfig);
       setDetectorReady(true);
       setIsLoading(false);
@@ -102,15 +102,15 @@ export default function LiveAnalysis() {
   const initializeFaceDetector = async () => {
     try {
       setIsLoading(true);
-      
+
       await tf.ready();
-      
+
       const model = faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh;
       const detectorConfig = {
         runtime: 'tfjs' as const,
         refineLandmarks: true,
       };
-      
+
       faceDetectorRef.current = await faceLandmarksDetection.createDetector(model, detectorConfig);
       setFaceDetectorReady(true);
       setIsLoading(false);
@@ -131,7 +131,7 @@ export default function LiveAnalysis() {
 
   const calculatePostureMetrics = (keypoints: any[]) => {
     const getKeypoint = (name: string) => keypoints.find((kp) => kp.name === name);
-    
+
     const leftShoulder = getKeypoint("left_shoulder");
     const rightShoulder = getKeypoint("right_shoulder");
     const nose = getKeypoint("nose");
@@ -146,7 +146,7 @@ export default function LiveAnalysis() {
     if (leftShoulder && rightShoulder && leftShoulder.score > 0.3 && rightShoulder.score > 0.3) {
       const shoulderDiff = Math.abs(leftShoulder.y - rightShoulder.y);
       const shoulderAlignment = Math.max(0, 1 - shoulderDiff * 2) * 100;
-      
+
       metrics.push({
         label: "Posture Alignment",
         value: Math.round(shoulderAlignment),
@@ -165,7 +165,7 @@ export default function LiveAnalysis() {
       };
       const headTilt = Math.abs(nose.x - eyeCenter.x);
       const headStability = Math.max(0, 1 - headTilt * 3) * 100;
-      
+
       metrics.push({
         label: "Head Stability",
         value: Math.round(headStability),
@@ -184,7 +184,7 @@ export default function LiveAnalysis() {
       };
       const spineAngle = Math.atan2(nose.y - shoulderMid.y, nose.x - shoulderMid.x);
       const uprightness = Math.abs(Math.cos(spineAngle)) * 100;
-      
+
       metrics.push({
         label: "Body Uprightness",
         value: Math.round(uprightness),
@@ -200,7 +200,7 @@ export default function LiveAnalysis() {
       const shoulderWidth = Math.abs(leftShoulder.x - rightShoulder.x);
       const hipWidth = Math.abs(leftHip.x - rightHip.x);
       const openness = Math.min(1, shoulderWidth / hipWidth) * 100;
-      
+
       metrics.push({
         label: "Body Openness",
         value: Math.round(openness),
@@ -214,7 +214,7 @@ export default function LiveAnalysis() {
 
     const avgConfidence = keypoints.reduce((sum, kp) => sum + kp.score, 0) / keypoints.length;
     const visibility = avgConfidence * 100;
-    
+
     metrics.push({
       label: "Visibility Score",
       value: Math.round(visibility),
@@ -230,7 +230,7 @@ export default function LiveAnalysis() {
 
   const detectGesture = (keypoints: any[]): string => {
     const getKeypoint = (name: string) => keypoints.find((kp) => kp.name === name);
-    
+
     const leftWrist = getKeypoint("left_wrist");
     const rightWrist = getKeypoint("right_wrist");
     const leftElbow = getKeypoint("left_elbow");
@@ -238,28 +238,28 @@ export default function LiveAnalysis() {
     const leftShoulder = getKeypoint("left_shoulder");
     const rightShoulder = getKeypoint("right_shoulder");
     const nose = getKeypoint("nose");
-    
+
     if (rightWrist && rightElbow && rightShoulder && 
         rightWrist.score > 0.5 && rightElbow.score > 0.5 && rightShoulder.score > 0.5) {
       if (rightWrist.y < rightElbow.y && rightWrist.y < rightShoulder.y) {
         return "👋 Waving Right Hand";
       }
     }
-    
+
     if (leftWrist && leftElbow && leftShoulder && 
         leftWrist.score > 0.5 && leftElbow.score > 0.5 && leftShoulder.score > 0.5) {
       if (leftWrist.y < leftElbow.y && leftWrist.y < leftShoulder.y) {
         return "👋 Waving Left Hand";
       }
     }
-    
+
     if (leftWrist && rightWrist && leftShoulder && rightShoulder &&
         leftWrist.score > 0.5 && rightWrist.score > 0.5) {
       if (leftWrist.x > rightShoulder.x && rightWrist.x < leftShoulder.x) {
         return "🤝 Arms Crossed";
       }
     }
-    
+
     if (leftWrist && rightWrist && leftShoulder && rightShoulder &&
         leftWrist.score > 0.5 && rightWrist.score > 0.5) {
       const leftHip = getKeypoint("left_hip");
@@ -272,28 +272,28 @@ export default function LiveAnalysis() {
         }
       }
     }
-    
+
     if (rightWrist && rightElbow && rightShoulder &&
         rightWrist.score > 0.5 && rightElbow.score > 0.5) {
       if (rightWrist.y < rightShoulder.y && rightElbow.y < rightShoulder.y) {
         return "👍 Thumbs Up";
       }
     }
-    
+
     if (nose && rightWrist && rightWrist.score > 0.5 && nose.score > 0.5) {
       const distance = Math.sqrt(Math.pow(nose.x - rightWrist.x, 2) + Math.pow(nose.y - rightWrist.y, 2));
       if (distance < 0.15) {
         return "🤔 Thinking Pose";
       }
     }
-    
+
     if (nose && leftWrist && leftWrist.score > 0.5 && nose.score > 0.5) {
       const distance = Math.sqrt(Math.pow(nose.x - leftWrist.x, 2) + Math.pow(nose.y - leftWrist.y, 2));
       if (distance < 0.15) {
         return "🤔 Thinking Pose";
       }
     }
-    
+
     if (leftWrist && rightWrist && leftShoulder && rightShoulder &&
         leftWrist.score > 0.5 && rightWrist.score > 0.5) {
       const armSpan = Math.abs(leftWrist.x - rightWrist.x);
@@ -302,7 +302,7 @@ export default function LiveAnalysis() {
         return "🙌 Open Arms - Welcoming";
       }
     }
-    
+
     return "Neutral";
   };
 
@@ -343,7 +343,7 @@ export default function LiveAnalysis() {
           gradient.addColorStop(0, "rgba(59, 130, 246, 0.8)");
           gradient.addColorStop(0.5, "rgba(124, 58, 237, 0.8)");
           gradient.addColorStop(1, "rgba(59, 130, 246, 0.8)");
-          
+
           ctx.beginPath();
           ctx.moveTo(startKp.x, startKp.y);
           ctx.lineTo(endKp.x, endKp.y);
@@ -368,24 +368,24 @@ export default function LiveAnalysis() {
           glowGradient.addColorStop(1, "rgba(0, 0, 0, 0)");
           ctx.fillStyle = glowGradient;
           ctx.fill();
-          
+
           ctx.beginPath();
           ctx.arc(keypoint.x, keypoint.y, 4, 0, 2 * Math.PI);
           ctx.fillStyle = keypoint.score > 0.6 ? "#22c55e" : "#f59e0b";
           ctx.fill();
-          
+
           ctx.beginPath();
           ctx.arc(keypoint.x - 1, keypoint.y - 1, 2, 0, 2 * Math.PI);
           ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
           ctx.fill();
         }
       });
-      
+
       const faceLandmarks = ["nose", "left_eye", "right_eye", "left_ear", "right_ear"];
       const facePoints = faceLandmarks
         .map(name => keypoints.find((kp: any) => kp.name === name))
         .filter(kp => kp && kp.score > 0.4);
-      
+
       if (facePoints.length >= 3) {
         ctx.beginPath();
         ctx.strokeStyle = "rgba(167, 139, 250, 0.4)";
@@ -409,9 +409,9 @@ export default function LiveAnalysis() {
 
     faces.forEach((face) => {
       const keypoints = face.keypoints;
-      
+
       setFaceTracking(true);
-      
+
       if (keypoints && keypoints.length > 0) {
         const xs = keypoints.map((kp: any) => kp.x);
         const ys = keypoints.map((kp: any) => kp.y);
@@ -419,17 +419,17 @@ export default function LiveAnalysis() {
         const maxX = Math.max(...xs);
         const minY = Math.min(...ys);
         const maxY = Math.max(...ys);
-        
+
         ctx.strokeStyle = "rgba(0, 255, 0, 0.8)";
         ctx.lineWidth = 2;
         ctx.strokeRect(minX, minY, maxX - minX, maxY - minY);
-        
+
         ctx.strokeStyle = "rgba(0, 255, 0, 0.6)";
         ctx.lineWidth = 1;
-        
+
         for (let i = 0; i < keypoints.length; i++) {
           const kp = keypoints[i];
-          
+
           if (i % 3 === 0 && i + 3 < keypoints.length) {
             ctx.beginPath();
             ctx.moveTo(kp.x, kp.y);
@@ -437,7 +437,7 @@ export default function LiveAnalysis() {
             ctx.lineTo(nextKp.x, nextKp.y);
             ctx.stroke();
           }
-          
+
           if (i < 17 && i + 1 < keypoints.length) {
             ctx.beginPath();
             ctx.moveTo(kp.x, kp.y);
@@ -446,7 +446,7 @@ export default function LiveAnalysis() {
             ctx.stroke();
           }
         }
-        
+
         keypoints.forEach((kp: any, idx: number) => {
           if (idx % 4 === 0) {
             ctx.beginPath();
@@ -459,8 +459,36 @@ export default function LiveAnalysis() {
     });
   };
 
-  const detectPoseLoop = useCallback(async () => {
-    if (!videoRef.current || !detectorRef.current || !overlayCanvasRef.current || !detectorReady) {
+  // New function to draw bounding boxes for poses
+  const drawPoseBoundingBox = (poses: any[], canvas: HTMLCanvasElement) => {
+    const ctx = canvas.getContext("2d");
+    if (!ctx || !poses.length) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    poses.forEach((pose) => {
+      const keypoints = pose.keypoints;
+      const validKeypoints = keypoints.filter((kp: any) => kp.score > 0.3);
+
+      if (validKeypoints.length === 0) return;
+
+      const xs = validKeypoints.map((kp: any) => kp.x);
+      const ys = validKeypoints.map((kp: any) => kp.y);
+      const minX = Math.min(...xs);
+      const maxX = Math.max(...xs);
+      const minY = Math.min(...ys);
+      const maxY = Math.max(...ys);
+
+      // Draw bounding box
+      ctx.strokeStyle = "rgba(59, 130, 246, 0.8)"; // Blue color
+      ctx.lineWidth = 2;
+      ctx.strokeRect(minX, minY, maxX - minX, maxY - minY);
+    });
+  };
+
+
+  const detectLoop = useCallback(async () => {
+    if (!videoRef.current || !overlayCanvasRef.current) {
       return;
     }
 
@@ -472,19 +500,40 @@ export default function LiveAnalysis() {
       overlayCanvas.height = video.videoHeight;
 
       try {
-        const poses = await detectorRef.current.estimatePoses(video);
+        if (mode === "expressions") {
+          if (!faceDetectorRef.current || !faceDetectorReady) return;
+          const faces = await faceDetectorRef.current.estimateFaces(video, {
+            flipHorizontal: false,
+          });
 
-        if (poses.length > 0) {
-          const { metrics: newMetrics, feedback: newFeedback } = calculatePostureMetrics(
-            poses[0].keypoints
-          );
-          setMetrics(newMetrics);
-          setFeedback(newFeedback);
-          
-          const gesture = detectGesture(poses[0].keypoints);
-          setCurrentGesture(gesture);
-          
-          drawPoseLandmarks(poses, overlayCanvas);
+          if (faces && faces.length > 0) {
+            drawFaceMesh(faces, overlayCanvas);
+            setFaceTracking(true);
+          } else {
+            setFaceTracking(false);
+            const ctx = overlayCanvas.getContext("2d");
+            if (ctx) ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+          }
+        } else if (mode === "composure") {
+          if (!detectorRef.current || !detectorReady) return;
+          const poses = await detectorRef.current.estimatePoses(video, {
+            flipHorizontal: false,
+          });
+
+          if (poses && poses.length > 0) {
+            drawPoseBoundingBox(poses, overlayCanvas);
+            const { metrics: newMetrics, feedback: newFeedback } = calculatePostureMetrics(
+              poses[0].keypoints
+            );
+            setMetrics(newMetrics);
+            setFeedback(newFeedback);
+
+            const gesture = detectGesture(poses[0].keypoints);
+            setCurrentGesture(gesture);
+          } else {
+            const ctx = overlayCanvas.getContext("2d");
+            if (ctx) ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+          }
         }
 
         const now = performance.now();
@@ -495,50 +544,14 @@ export default function LiveAnalysis() {
           lastFrameTimeRef.current = now;
         }
       } catch (error) {
-        console.error("Pose detection error:", error);
+        console.error("Detection loop error:", error);
+        // Handle specific errors if needed
       }
     }
 
-    animationRef.current = requestAnimationFrame(detectPoseLoop);
-  }, [detectorReady]);
+    animationRef.current = requestAnimationFrame(detectLoop);
+  }, [mode, detectorReady, faceDetectorReady]);
 
-  const detectFaceLoop = useCallback(async () => {
-    if (!videoRef.current || !faceDetectorRef.current || !overlayCanvasRef.current || !faceDetectorReady) {
-      return;
-    }
-
-    const video = videoRef.current;
-    const overlayCanvas = overlayCanvasRef.current;
-
-    if (video.readyState === 4) {
-      overlayCanvas.width = video.videoWidth;
-      overlayCanvas.height = video.videoHeight;
-
-      try {
-        const faces = await faceDetectorRef.current.estimateFaces(video);
-
-        if (faces.length > 0) {
-          drawFaceMesh(faces, overlayCanvas);
-        } else {
-          setFaceTracking(false);
-          const ctx = overlayCanvas.getContext("2d");
-          if (ctx) ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-        }
-
-        const now = performance.now();
-        frameCountRef.current++;
-        if (now - lastFrameTimeRef.current >= 1000) {
-          setFps(frameCountRef.current);
-          frameCountRef.current = 0;
-          lastFrameTimeRef.current = now;
-        }
-      } catch (error) {
-        console.error("Face detection error:", error);
-      }
-    }
-
-    animationRef.current = requestAnimationFrame(detectFaceLoop);
-  }, [faceDetectorReady]);
 
   const sendFrameToGemini = useCallback(async () => {
     if (!videoRef.current || !canvasRef.current || isAnalyzing) return;
@@ -568,7 +581,7 @@ export default function LiveAnalysis() {
 
         if (response.ok) {
           const data = await response.json();
-          
+
           if (data.improvements && data.improvements.length > 0) {
             setFeedback((prev) => {
               const combined = [...new Set([...prev, ...data.improvements])];
@@ -612,7 +625,7 @@ export default function LiveAnalysis() {
 
         if (response.ok) {
           const data = await response.json();
-          
+
           if (data.emotions) {
             setEmotions(data.emotions);
           }
@@ -625,7 +638,7 @@ export default function LiveAnalysis() {
         } else {
           const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
           console.error("Expression analysis failed:", errorData);
-          
+
           setEmotions({
             neutral: 0,
             happy: 0,
@@ -637,7 +650,7 @@ export default function LiveAnalysis() {
           });
           setAge(0);
           setGender("Unknown");
-          
+
           toast({
             title: "Analysis Error",
             description: "Failed to analyze facial expressions. Please try again.",
@@ -646,7 +659,7 @@ export default function LiveAnalysis() {
         }
       } catch (error) {
         console.error("Gemini expression analysis error:", error);
-        
+
         setEmotions({
           neutral: 0,
           happy: 0,
@@ -658,7 +671,7 @@ export default function LiveAnalysis() {
         });
         setAge(0);
         setGender("Unknown");
-        
+
         toast({
           title: "Connection Error",
           description: "Could not connect to analysis service.",
@@ -710,16 +723,17 @@ export default function LiveAnalysis() {
 
         videoRef.current.onloadeddata = () => {
           if (mode === "composure" && detectorReady) {
-            detectPoseLoop();
+            if (geminiIntervalRef.current) clearInterval(geminiIntervalRef.current);
             geminiIntervalRef.current = setInterval(() => {
               sendFrameToGemini();
             }, 15000);
           } else if (mode === "expressions" && faceDetectorReady) {
-            detectFaceLoop();
+            if (geminiIntervalRef.current) clearInterval(geminiIntervalRef.current);
             geminiIntervalRef.current = setInterval(() => {
               sendFrameToGeminiExpressions();
             }, 3000);
           }
+          detectLoop(); // Start the combined detection loop
         };
       }
     } catch (error) {
@@ -749,6 +763,12 @@ export default function LiveAnalysis() {
     setMetrics([]);
     setFps(0);
     setFaceTracking(false);
+    setCurrentGesture("Neutral");
+    setEmotions({
+      neutral: 0, happy: 0, surprise: 0, angry: 0, disgust: 0, fear: 0, sad: 0
+    });
+    setAge(0);
+    setGender("Unknown");
   };
 
   const switchMode = (newMode: AnalysisMode) => {
@@ -762,7 +782,7 @@ export default function LiveAnalysis() {
     } else {
       initializeFaceDetector();
     }
-    
+
     return () => {
       stopCamera();
       if (detectorRef.current) {
@@ -776,7 +796,7 @@ export default function LiveAnalysis() {
 
   const getEmotionColor = (emotion: string, value: number) => {
     if (value === 0) return "bg-gray-800 dark:bg-gray-900";
-    
+
     switch (emotion.toLowerCase()) {
       case "happy":
         return "bg-green-500";
@@ -795,8 +815,8 @@ export default function LiveAnalysis() {
     }
   };
 
-  const maxEmotion = Object.entries(emotions).reduce((max, [key, value]) => 
-    value > max.value ? { emotion: key, value } : max, 
+  const maxEmotion = Object.entries(emotions).reduce((max, [key, value]) =>
+    value > max.value ? { emotion: key, value } : max,
     { emotion: "", value: 0 }
   );
 
@@ -868,7 +888,7 @@ export default function LiveAnalysis() {
                     <span className="text-sm">Deep Analysis</span>
                   </div>
                 )}
-                
+
                 {isStreaming && mode === "composure" && currentGesture !== "Neutral" && (
                   <div className="absolute top-4 left-4 bg-purple-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-xl animate-pulse">
                     <span className="text-lg">{currentGesture}</span>
@@ -877,9 +897,9 @@ export default function LiveAnalysis() {
 
                 {!isStreaming && !isLoading && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                    <Button 
-                      size="lg" 
-                      onClick={startCamera} 
+                    <Button
+                      size="lg"
+                      onClick={startCamera}
                       className="gap-2"
                       data-testid="button-start-camera"
                     >
@@ -901,9 +921,9 @@ export default function LiveAnalysis() {
 
               {isStreaming && (
                 <div className="mt-4 flex justify-center">
-                  <Button 
-                    variant="destructive" 
-                    onClick={stopCamera} 
+                  <Button
+                    variant="destructive"
+                    onClick={stopCamera}
                     className="gap-2"
                     data-testid="button-stop-camera"
                   >
