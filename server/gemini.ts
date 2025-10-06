@@ -268,15 +268,32 @@ Analyze this image for facial expressions, emotions, and age. Provide precise em
       const data = JSON.parse(rawJson);
       
       // Ensure emotions are properly formatted as percentages (0-100)
-      const emotions = {
-        neutral: Math.round(data.emotions.neutral <= 1 ? data.emotions.neutral * 100 : data.emotions.neutral),
-        happy: Math.round(data.emotions.happy <= 1 ? data.emotions.happy * 100 : data.emotions.happy),
-        surprise: Math.round(data.emotions.surprise <= 1 ? data.emotions.surprise * 100 : data.emotions.surprise),
-        angry: Math.round(data.emotions.angry <= 1 ? data.emotions.angry * 100 : data.emotions.angry),
-        disgust: Math.round(data.emotions.disgust <= 1 ? data.emotions.disgust * 100 : data.emotions.disgust),
-        fear: Math.round(data.emotions.fear <= 1 ? data.emotions.fear * 100 : data.emotions.fear),
-        sad: Math.round(data.emotions.sad <= 1 ? data.emotions.sad * 100 : data.emotions.sad)
+      let emotions = {
+        neutral: data.emotions.neutral <= 1 ? data.emotions.neutral * 100 : data.emotions.neutral,
+        happy: data.emotions.happy <= 1 ? data.emotions.happy * 100 : data.emotions.happy,
+        surprise: data.emotions.surprise <= 1 ? data.emotions.surprise * 100 : data.emotions.surprise,
+        angry: data.emotions.angry <= 1 ? data.emotions.angry * 100 : data.emotions.angry,
+        disgust: data.emotions.disgust <= 1 ? data.emotions.disgust * 100 : data.emotions.disgust,
+        fear: data.emotions.fear <= 1 ? data.emotions.fear * 100 : data.emotions.fear,
+        sad: data.emotions.sad <= 1 ? data.emotions.sad * 100 : data.emotions.sad
       };
+      
+      // Normalize emotions to sum to 100%
+      const emotionSum = Object.values(emotions).reduce((sum, val) => sum + val, 0);
+      if (emotionSum > 0) {
+        Object.keys(emotions).forEach(key => {
+          emotions[key as keyof typeof emotions] = Math.round((emotions[key as keyof typeof emotions] / emotionSum) * 100);
+        });
+      }
+      
+      // Ensure exact sum of 100 by adjusting the highest emotion if needed
+      const normalizedSum = Object.values(emotions).reduce((sum, val) => sum + val, 0);
+      if (normalizedSum !== 100 && normalizedSum > 0) {
+        const maxEmotion = Object.entries(emotions).reduce((max, [key, val]) => 
+          val > max.val ? { key, val } : max, { key: 'neutral', val: 0 }
+        );
+        emotions[maxEmotion.key as keyof typeof emotions] += (100 - normalizedSum);
+      }
       
       return {
         emotions,
