@@ -3,6 +3,27 @@ import type { AnalysisResult } from "@shared/schema";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
 
+export interface EmotionAnalysis {
+  emotions: {
+    neutral: number;
+    happy: number;
+    surprise: number;
+    angry: number;
+    disgust: number;
+    fear: number;
+    sad: number;
+  };
+  age: number;
+  gender: string;
+  faceDetected: boolean;
+  status: {
+    source: string;
+    player: string;
+    face: string;
+    markers: string;
+  };
+}
+
 export async function analyzeBodyLanguage(
   fileBuffer: Buffer,
   mimeType: string,
@@ -167,5 +188,133 @@ Analyze this ${mimeType.startsWith('image/') ? 'image' : mimeType.startsWith('vi
   } catch (error) {
     console.error("Gemini analysis error:", error);
     throw new Error(`Failed to analyze: ${error}`);
+  }
+}
+
+export async function analyzeFacialExpressions(
+  fileBuffer: Buffer,
+  mimeType: string
+): Promise<EmotionAnalysis> {
+  try {
+    const systemPrompt = `You are an expert facial expression analyst specializing in emotion recognition and age estimation. Analyze the provided image with precision.
+
+ANALYSIS REQUIREMENTS:
+
+1. EMOTION DETECTION (percentage 0-100 for each):
+   - Neutral: Absence of strong emotional expression
+   - Happy: Smile, raised cheeks, crow's feet around eyes
+   - Surprise: Raised eyebrows, wide eyes, open mouth
+   - Angry: Furrowed brows, tense jaw, narrowed eyes
+   - Disgust: Wrinkled nose, raised upper lip
+   - Fear: Wide eyes, raised eyebrows, tense expression
+   - Sad: Downturned mouth, drooping eyes, furrowed brow
+
+2. AGE ESTIMATION:
+   - Provide best estimate of person's age in years (e.g., 25, 30, 45)
+
+3. GENDER DETECTION:
+   - Estimate: "Male", "Female", or "Unknown"
+
+4. FACE DETECTION STATUS:
+   - Confirm if a clear face is detected: true/false
+
+The percentages for all emotions must sum to 100. Provide accurate, professional analysis.`;
+
+    const contents = [
+      {
+        inlineData: {
+          data: fileBuffer.toString("base64"),
+          mimeType: mimeType,
+        },
+      },
+      `${systemPrompt}
+
+Analyze this image for facial expressions, emotions, and age. Provide precise emotion percentages that sum to 100.`,
+    ];
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.0-flash-exp",
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "object",
+          properties: {
+            emotions: {
+              type: "object",
+              properties: {
+                neutral: { type: "number", description: "Percentage 0-100" },
+                happy: { type: "number", description: "Percentage 0-100" },
+                surprise: { type: "number", description: "Percentage 0-100" },
+                angry: { type: "number", description: "Percentage 0-100" },
+                disgust: { type: "number", description: "Percentage 0-100" },
+                fear: { type: "number", description: "Percentage 0-100" },
+                sad: { type: "number", description: "Percentage 0-100" }
+              },
+              required: ["neutral", "happy", "surprise", "angry", "disgust", "fear", "sad"]
+            },
+            age: { type: "number", description: "Estimated age in years" },
+            gender: { type: "string", enum: ["Male", "Female", "Unknown"] },
+            faceDetected: { type: "boolean" }
+          },
+          required: ["emotions", "age", "gender", "faceDetected"]
+        },
+      },
+      contents: contents,
+    });
+
+    const rawJson = response.text;
+    
+    if (rawJson) {
+      const data = JSON.parse(rawJson);
+      
+      // Ensure emotions are properly formatted as percentages (0-100)
+      const emotions = {
+        neutral: Math.round(data.emotions.neutral <= 1 ? data.emotions.neutral * 100 : data.emotions.neutral),
+        happy: Math.round(data.emotions.happy <= 1 ? data.emotions.happy * 100 : data.emotions.happy),
+        surprise: Math.round(data.emotions.surprise <= 1 ? data.emotions.surprise * 100 : data.emotions.surprise),
+        angry: Math.round(data.emotions.angry <= 1 ? data.emotions.angry * 100 : data.emotions.angry),
+        disgust: Math.round(data.emotions.disgust <= 1 ? data.emotions.disgust * 100 : data.emotions.disgust),
+        fear: Math.round(data.emotions.fear <= 1 ? data.emotions.fear * 100 : data.emotions.fear),
+        sad: Math.round(data.emotions.sad <= 1 ? data.emotions.sad * 100 : data.emotions.sad)
+      };
+      
+      return {
+        emotions,
+        age: Math.round(data.age),
+        gender: data.gender,
+        faceDetected: data.faceDetected,
+        status: {
+          source: "Webcam",
+          player: "Playing",
+          face: data.faceDetected ? "Tracking" : "Not Detected",
+          markers: "Scale to face"
+        }
+      };
+    } else {
+      throw new Error("Empty response from Gemini");
+    }
+  } catch (error) {
+    console.error("Gemini facial analysis error:", error);
+    // Return default values on error
+    return {
+      emotions: {
+        neutral: 100,
+        happy: 0,
+        surprise: 0,
+        angry: 0,
+        disgust: 0,
+        fear: 0,
+        sad: 0
+      },
+      age: 0,
+      gender: "Unknown",
+      faceDetected: false,
+      status: {
+        source: "Webcam",
+        player: "Error",
+        face: "Not Detected",
+        markers: "N/A"
+      }
+    };
   }
 }
