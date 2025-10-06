@@ -694,49 +694,6 @@ export default function LiveAnalysis() {
   }, [mode, detectorReady, faceDetectorReady]);
 
 
-  const sendFrameToGemini = useCallback(async () => {
-    if (!videoRef.current || !canvasRef.current || isAnalyzing) return;
-
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const context = canvas.getContext("2d");
-
-    if (!context) return;
-
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    canvas.toBlob(async (blob) => {
-      if (!blob) return;
-
-      setIsAnalyzing(true);
-      try {
-        const formData = new FormData();
-        formData.append("file", blob, "frame.jpg");
-
-        const response = await fetch("/api/analyze-live", {
-          method: "POST",
-          body: formData,
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-
-          if (data.improvements && data.improvements.length > 0) {
-            setFeedback((prev) => {
-              const combined = [...new Set([...prev, ...data.improvements])];
-              return combined.slice(0, 4);
-            });
-          }
-        }
-      } catch (error) {
-        console.error("Gemini analysis error:", error);
-      } finally {
-        setIsAnalyzing(false);
-      }
-    }, "image/jpeg", 0.85);
-  }, [isAnalyzing]);
 
   const sendFrameToGeminiExpressions = useCallback(async () => {
     if (!videoRef.current || !canvasRef.current || isAnalyzing) return;
@@ -863,12 +820,7 @@ export default function LiveAnalysis() {
         setIsStreaming(true);
 
         videoRef.current.onloadeddata = () => {
-          if (mode === "composure" && detectorReady) {
-            if (geminiIntervalRef.current) clearInterval(geminiIntervalRef.current);
-            geminiIntervalRef.current = setInterval(() => {
-              sendFrameToGemini();
-            }, 15000);
-          } else if (mode === "expressions" && faceDetectorReady) {
+          if (mode === "expressions" && faceDetectorReady) {
             if (geminiIntervalRef.current) clearInterval(geminiIntervalRef.current);
             geminiIntervalRef.current = setInterval(() => {
               sendFrameToGeminiExpressions();
@@ -905,6 +857,8 @@ export default function LiveAnalysis() {
     setFps(0);
     setFaceTracking(false);
     setCurrentGesture("Neutral");
+    setCurrentAdjective("Neutral");
+    setComposureScore(0);
     setEmotions({
       neutral: 0, happy: 0, surprise: 0, angry: 0, disgust: 0, fear: 0, sad: 0
     });
@@ -1079,6 +1033,21 @@ export default function LiveAnalysis() {
           <div className="space-y-4">
             {mode === "composure" ? (
               <>
+                <Card className="p-4 bg-gradient-to-br from-blue-600/20 to-purple-600/20 border-blue-500/30">
+                  <h2 className="text-lg font-semibold mb-3">Composure Analysis</h2>
+                  <div className="text-center space-y-2" data-testid="composure-score-display">
+                    <div className="text-4xl font-bold text-blue-400" data-testid="composure-score">
+                      {composureScore}%
+                    </div>
+                    <div className="text-xl font-semibold text-foreground" data-testid="composure-adjective">
+                      {currentAdjective}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      Overall Presence Score
+                    </div>
+                  </div>
+                </Card>
+
                 <Card className="p-4">
                   <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
