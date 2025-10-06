@@ -109,10 +109,17 @@ Preferred communication style: Simple, everyday language.
 **Modular Analysis Modes**: The application supports multiple analysis modes with mode-specific optimizations:
 - **Static Upload Mode**: Comprehensive body language analysis of images, videos, or audio files using Gemini AI for detailed insights
 - **Live Composure Mode**: Real-time posture and gesture analysis using only TensorFlow.js (MoveNet model) with research-based biomechanics assessment. Features include:
-  - Skeletal overlay visualization showing body pose with connecting lines
-  - Face-only bounding box with descriptive adjective display (selected from 500+ adjectives based on composure score)
+  - Premium skeletal overlay visualization with gradient-colored connecting lines and glow effects
+  - Rounded face-only bounding box with gradient background and adjective display (selected from 500+ adjectives based on composure score)
   - Enhanced metrics based on academic research: Spinal Alignment, Shoulder Position & Openness, Head Stability & Orientation, Body Uprightness, and Detection Quality
-  - Overall composure score (0-100%) calculated from multiple postural biomechanics indicators
+  - Overall composure score (0-100%) with gradient text animation displayed prominently
+  - Stability indicator showing "Locked" status when readings are stable (hysteresis-based)
+  - Exponential moving average smoothing (5-frame history, 30% new / 70% historical weighting)
+  - Weighted score averaging (8-frame history with recency bias) for ultra-stable readings
+  - Adjective hysteresis (10-point threshold) to prevent rapid word switching
+  - Smart frame skipping: processes every 2nd frame when stable for 50% performance boost
+  - Normalized biomechanics: all measurements relative to body proportions for accuracy across distances
+  - Higher confidence thresholds (0.5+ for body, 0.6+ for face) to filter noise
   - Real-time gesture recognition (waving, crossed arms, hands on hips, thinking pose, etc.)
   - No server-side AI calls - all processing happens client-side for instant feedback
 - **Live Expressions Mode**: Real-time facial expression recognition with emotion percentages, age estimation, and face mesh visualization. Uses MediaPipe FaceMesh for client-side landmark detection and Gemini AI for emotion analysis every 3 seconds
