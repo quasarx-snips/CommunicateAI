@@ -1,7 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import type { AnalysisResult } from "@shared/schema";
 
-const ai = new GoogleGenAI({ apiKey: "AIzaSyDTPPfXApwuSjy905Vgs-2xEts1Lyi9BkI"});
+const ai = new GoogleGenAI({ apiKey: "AIzaSyAjXm-2E3wplOiacApvcfTRJNJ11Znh3u4"});
 
 export interface EmotionAnalysis {
   emotions: {
