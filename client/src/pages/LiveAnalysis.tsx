@@ -63,7 +63,90 @@ export default function LiveAnalysis() {
   const geminiIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastFrameTimeRef = useRef<number>(0);
   const frameCountRef = useRef<number>(0);
+  
+  // Smoothing and stability refs
+  const metricsHistoryRef = useRef<Array<{ label: string; value: number; color: string }[]>>([]);
+  const scoreHistoryRef = useRef<number[]>([]);
+  const adjectiveStableRef = useRef<{ adjective: string; score: number }>({ adjective: "Neutral", score: 0 });
+  
   const { toast } = useToast();
+
+  // Smoothing function with exponential moving average
+  const smoothMetrics = (
+    newMetrics: { label: string; value: number; color: string }[]
+  ): { label: string; value: number; color: string }[] => {
+    const HISTORY_SIZE = 5; // Keep last 5 frames
+    const SMOOTHING_FACTOR = 0.3; // Weight for new value (0.3 = 30% new, 70% old)
+    
+    metricsHistoryRef.current.push(newMetrics);
+    if (metricsHistoryRef.current.length > HISTORY_SIZE) {
+      metricsHistoryRef.current.shift();
+    }
+
+    if (metricsHistoryRef.current.length === 1) {
+      return newMetrics;
+    }
+
+    // Calculate exponentially weighted average
+    const smoothed = newMetrics.map((metric, idx) => {
+      const history = metricsHistoryRef.current
+        .map(frame => frame[idx]?.value || metric.value)
+        .filter(val => val !== undefined);
+
+      let smoothedValue = history[history.length - 1];
+      for (let i = history.length - 2; i >= 0; i--) {
+        smoothedValue = history[i] * (1 - SMOOTHING_FACTOR) + smoothedValue * SMOOTHING_FACTOR;
+      }
+
+      // Update color based on smoothed value
+      let color = "hsl(0 80% 50%)";
+      if (smoothedValue > 80) color = "hsl(140 60% 45%)";
+      else if (smoothedValue > 60) color = "hsl(30 90% 55%)";
+
+      return {
+        ...metric,
+        value: Math.round(smoothedValue),
+        color
+      };
+    });
+
+    return smoothed;
+  };
+
+  // Smooth composure score with hysteresis
+  const smoothComposureScore = (newScore: number): number => {
+    const SCORE_HISTORY_SIZE = 8;
+    
+    scoreHistoryRef.current.push(newScore);
+    if (scoreHistoryRef.current.length > SCORE_HISTORY_SIZE) {
+      scoreHistoryRef.current.shift();
+    }
+
+    // Calculate weighted moving average (more weight to recent values)
+    const weights = scoreHistoryRef.current.map((_, idx) => idx + 1);
+    const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+    const weightedScore = scoreHistoryRef.current.reduce(
+      (sum, score, idx) => sum + score * weights[idx],
+      0
+    ) / totalWeight;
+
+    return Math.round(weightedScore);
+  };
+
+  // Stable adjective selection with hysteresis
+  const getStableAdjective = (score: number): string => {
+    const CHANGE_THRESHOLD = 10; // Only change if score differs by 10+ points
+    
+    const scoreDiff = Math.abs(score - adjectiveStableRef.current.score);
+    
+    if (scoreDiff >= CHANGE_THRESHOLD || adjectiveStableRef.current.adjective === "Neutral") {
+      const newAdjective = getComposureAdjective(score);
+      adjectiveStableRef.current = { adjective: newAdjective, score };
+      return newAdjective;
+    }
+    
+    return adjectiveStableRef.current.adjective;
+  };
 
   const initializePoseDetector = async () => {
     try {
@@ -135,6 +218,9 @@ export default function LiveAnalysis() {
   const calculatePostureMetrics = (keypoints: any[]) => {
     const getKeypoint = (name: string) => keypoints.find((kp) => kp.name === name);
 
+    // Higher confidence threshold for more stable readings
+    const CONFIDENCE_THRESHOLD = 0.5;
+    
     const leftShoulder = getKeypoint("left_shoulder");
     const rightShoulder = getKeypoint("right_shoulder");
     const nose = getKeypoint("nose");
@@ -150,20 +236,22 @@ export default function LiveAnalysis() {
 
     // 1. SPINAL ALIGNMENT - Based on research paper's postural biomechanics
     if (leftShoulder && rightShoulder && leftHip && rightHip && 
-        leftShoulder.score > 0.4 && rightShoulder.score > 0.4 && 
-        leftHip.score > 0.4 && rightHip.score > 0.4) {
+        leftShoulder.score > CONFIDENCE_THRESHOLD && rightShoulder.score > CONFIDENCE_THRESHOLD && 
+        leftHip.score > CONFIDENCE_THRESHOLD && rightHip.score > CONFIDENCE_THRESHOLD) {
       
       const shoulderMid = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
       const hipMid = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
       
-      // Calculate spinal alignment (vertical alignment between shoulders and hips)
+      // Normalized spinal deviation (relative to body size)
+      const bodyHeight = Math.abs(shoulderMid.y - hipMid.y);
       const spineDeviation = Math.abs(shoulderMid.x - hipMid.x);
-      const spinalAlignment = Math.max(0, (1 - spineDeviation * 2.5)) * 100;
+      const normalizedDeviation = bodyHeight > 0 ? spineDeviation / bodyHeight : 0;
+      const spinalAlignment = Math.max(0, (1 - normalizedDeviation * 3)) * 100;
 
       metrics.push({
         label: "Spinal Alignment",
         value: Math.round(spinalAlignment),
-        color: spinalAlignment > 75 ? "hsl(140 60% 45%)" : spinalAlignment > 50 ? "hsl(30 90% 55%)" : "hsl(0 80% 50%)",
+        color: spinalAlignment > 80 ? "hsl(140 60% 45%)" : spinalAlignment > 60 ? "hsl(30 90% 55%)" : "hsl(0 80% 50%)",
       });
 
       if (spinalAlignment < 75) {
@@ -172,30 +260,33 @@ export default function LiveAnalysis() {
     }
 
     // 2. SHOULDER POSITIONING - Level shoulders indicate confidence
-    if (leftShoulder && rightShoulder && leftShoulder.score > 0.4 && rightShoulder.score > 0.4) {
+    if (leftShoulder && rightShoulder && leftShoulder.score > CONFIDENCE_THRESHOLD && rightShoulder.score > CONFIDENCE_THRESHOLD) {
+      // Normalized shoulder difference (relative to shoulder width)
+      const shoulderWidth = Math.abs(leftShoulder.x - rightShoulder.x);
       const shoulderDiff = Math.abs(leftShoulder.y - rightShoulder.y);
-      const shoulderLevelness = Math.max(0, (1 - shoulderDiff * 3)) * 100;
+      const normalizedDiff = shoulderWidth > 0 ? shoulderDiff / shoulderWidth : 0;
+      const shoulderLevelness = Math.max(0, (1 - normalizedDiff * 4)) * 100;
 
       metrics.push({
         label: "Shoulder Position",
         value: Math.round(shoulderLevelness),
-        color: shoulderLevelness > 80 ? "hsl(140 60% 45%)" : shoulderLevelness > 60 ? "hsl(30 90% 55%)" : "hsl(0 80% 50%)",
+        color: shoulderLevelness > 85 ? "hsl(140 60% 45%)" : shoulderLevelness > 70 ? "hsl(30 90% 55%)" : "hsl(0 80% 50%)",
       });
 
       if (shoulderLevelness < 80) {
         feedbackMessages.push("Level your shoulders - appears more professional");
       }
 
-      // Shoulder openness (rolled back vs hunched forward)
-      const shoulderWidth = Math.abs(leftShoulder.x - rightShoulder.x);
-      if (leftHip && rightHip) {
+      // Shoulder openness - more accurate calculation
+      if (leftHip && rightHip && leftHip.score > CONFIDENCE_THRESHOLD && rightHip.score > CONFIDENCE_THRESHOLD) {
         const hipWidth = Math.abs(leftHip.x - rightHip.x);
-        const shoulderOpenness = Math.min(100, (shoulderWidth / hipWidth) * 85);
+        const shoulderToHipRatio = hipWidth > 0 ? shoulderWidth / hipWidth : 1;
+        const shoulderOpenness = Math.min(100, shoulderToHipRatio * 90);
 
         metrics.push({
           label: "Shoulder Openness",
           value: Math.round(shoulderOpenness),
-          color: shoulderOpenness > 80 ? "hsl(140 60% 45%)" : shoulderOpenness > 60 ? "hsl(30 90% 55%)" : "hsl(0 80% 50%)",
+          color: shoulderOpenness > 85 ? "hsl(140 60% 45%)" : shoulderOpenness > 70 ? "hsl(30 90% 55%)" : "hsl(0 80% 50%)",
         });
 
         if (shoulderOpenness < 80) {
@@ -205,32 +296,37 @@ export default function LiveAnalysis() {
     }
 
     // 3. HEAD POSITION AND STABILITY - Critical for professional presence
-    if (nose && leftEye && rightEye && nose.score > 0.5) {
+    if (nose && leftEye && rightEye && nose.score > 0.6 && leftEye.score > 0.6 && rightEye.score > 0.6) {
       const eyeCenter = { x: (leftEye.x + rightEye.x) / 2, y: (leftEye.y + rightEye.y) / 2 };
+      const eyeDistance = Math.abs(leftEye.x - rightEye.x);
       
-      // Head tilt (should be minimal)
+      // Normalized head tilt (relative to eye distance)
       const headTilt = Math.abs(nose.x - eyeCenter.x);
-      const headStability = Math.max(0, (1 - headTilt * 4)) * 100;
+      const normalizedTilt = eyeDistance > 0 ? headTilt / eyeDistance : 0;
+      const headStability = Math.max(0, (1 - normalizedTilt * 1.5)) * 100;
 
       metrics.push({
         label: "Head Stability",
         value: Math.round(headStability),
-        color: headStability > 80 ? "hsl(140 60% 45%)" : headStability > 60 ? "hsl(30 90% 55%)" : "hsl(0 80% 50%)",
+        color: headStability > 85 ? "hsl(140 60% 45%)" : headStability > 70 ? "hsl(30 90% 55%)" : "hsl(0 80% 50%)",
       });
 
       if (headStability < 80) {
         feedbackMessages.push("Keep head steady and centered");
       }
 
-      // Head orientation (forward facing)
-      if (leftShoulder && rightShoulder) {
+      // Head orientation - improved calculation
+      if (leftShoulder && rightShoulder && leftShoulder.score > CONFIDENCE_THRESHOLD && rightShoulder.score > CONFIDENCE_THRESHOLD) {
         const shoulderMid = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
-        const headForwardness = Math.max(0, 100 - Math.abs((nose.x - shoulderMid.x) * 200));
+        const shoulderWidth = Math.abs(leftShoulder.x - rightShoulder.x);
+        const headDeviation = Math.abs(nose.x - shoulderMid.x);
+        const normalizedHeadDeviation = shoulderWidth > 0 ? headDeviation / shoulderWidth : 0;
+        const headForwardness = Math.max(0, (1 - normalizedHeadDeviation * 2)) * 100;
 
         metrics.push({
           label: "Head Orientation",
           value: Math.round(headForwardness),
-          color: headForwardness > 75 ? "hsl(140 60% 45%)" : headForwardness > 50 ? "hsl(30 90% 55%)" : "hsl(0 80% 50%)",
+          color: headForwardness > 80 ? "hsl(140 60% 45%)" : headForwardness > 65 ? "hsl(30 90% 55%)" : "hsl(0 80% 50%)",
         });
 
         if (headForwardness < 75) {
@@ -241,34 +337,39 @@ export default function LiveAnalysis() {
 
     // 4. OVERALL UPRIGHTNESS - Body angle indicates engagement
     if (leftShoulder && rightShoulder && leftHip && rightHip && nose &&
-        leftShoulder.score > 0.4 && rightShoulder.score > 0.4 && nose.score > 0.5) {
+        leftShoulder.score > CONFIDENCE_THRESHOLD && rightShoulder.score > CONFIDENCE_THRESHOLD && 
+        leftHip.score > CONFIDENCE_THRESHOLD && rightHip.score > CONFIDENCE_THRESHOLD && nose.score > 0.6) {
       
       const shoulderMid = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
       const hipMid = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
       
-      // Calculate angle from vertical
-      const bodyAngle = Math.atan2(shoulderMid.y - hipMid.y, shoulderMid.x - hipMid.x);
-      const uprightness = Math.abs(Math.sin(bodyAngle)) * 100;
+      // More accurate uprightness calculation
+      const verticalDistance = Math.abs(shoulderMid.y - hipMid.y);
+      const horizontalDistance = Math.abs(shoulderMid.x - hipMid.x);
+      const uprightness = verticalDistance > 0 ? (verticalDistance / Math.sqrt(verticalDistance * verticalDistance + horizontalDistance * horizontalDistance)) * 100 : 0;
 
       metrics.push({
         label: "Body Uprightness",
         value: Math.round(uprightness),
-        color: uprightness > 85 ? "hsl(140 60% 45%)" : uprightness > 70 ? "hsl(30 90% 55%)" : "hsl(0 80% 50%)",
+        color: uprightness > 90 ? "hsl(140 60% 45%)" : uprightness > 80 ? "hsl(30 90% 55%)" : "hsl(0 80% 50%)",
       });
 
-      if (uprightness < 85) {
+      if (uprightness < 88) {
         feedbackMessages.push("Sit/stand more upright - shows engagement");
       }
     }
 
-    // 5. PROFESSIONAL PRESENCE SCORE - Overall composure indicator
-    const avgConfidence = keypoints.reduce((sum, kp) => sum + kp.score, 0) / keypoints.length;
+    // 5. PROFESSIONAL PRESENCE SCORE - Overall composure indicator (only high confidence keypoints)
+    const highConfidenceKeypoints = keypoints.filter(kp => kp.score > CONFIDENCE_THRESHOLD);
+    const avgConfidence = highConfidenceKeypoints.length > 0 
+      ? highConfidenceKeypoints.reduce((sum, kp) => sum + kp.score, 0) / highConfidenceKeypoints.length 
+      : 0;
     const visibility = avgConfidence * 100;
 
     metrics.push({
       label: "Detection Quality",
       value: Math.round(visibility),
-      color: visibility > 70 ? "hsl(140 60% 45%)" : visibility > 50 ? "hsl(30 90% 55%)" : "hsl(0 80% 50%)",
+      color: visibility > 75 ? "hsl(140 60% 45%)" : visibility > 60 ? "hsl(30 90% 55%)" : "hsl(0 80% 50%)",
     });
 
     if (visibility < 70) {
@@ -282,7 +383,7 @@ export default function LiveAnalysis() {
 
     return { 
       metrics, 
-      feedback: feedbackMessages.slice(0, 4),
+      feedback: feedbackMessages.slice(0, 3),
       composureScore: Math.round(avgScore)
     };
   };
@@ -657,17 +758,21 @@ export default function LiveAnalysis() {
           });
 
           if (poses && poses.length > 0) {
-            const { metrics: newMetrics, feedback: newFeedback, composureScore } = calculatePostureMetrics(
+            const { metrics: rawMetrics, feedback: newFeedback, composureScore: rawScore } = calculatePostureMetrics(
               poses[0].keypoints
             );
-            setMetrics(newMetrics);
+            
+            // Apply smoothing for stability
+            const smoothedMetrics = smoothMetrics(rawMetrics);
+            const smoothedScore = smoothComposureScore(rawScore);
+            const stableAdjective = getStableAdjective(smoothedScore);
+            
+            setMetrics(smoothedMetrics);
             setFeedback(newFeedback);
-            setComposureScore(composureScore);
+            setComposureScore(smoothedScore);
+            setCurrentAdjective(stableAdjective);
 
-            const adjective = getComposureAdjective(composureScore);
-            setCurrentAdjective(adjective);
-
-            drawComposureAnalysis(poses, overlayCanvas, adjective);
+            drawComposureAnalysis(poses, overlayCanvas, stableAdjective);
 
             const gesture = detectGesture(poses[0].keypoints);
             setCurrentGesture(gesture);
@@ -851,6 +956,12 @@ export default function LiveAnalysis() {
       clearInterval(geminiIntervalRef.current);
       geminiIntervalRef.current = null;
     }
+    
+    // Clear smoothing buffers for fresh start
+    metricsHistoryRef.current = [];
+    scoreHistoryRef.current = [];
+    adjectiveStableRef.current = { adjective: "Neutral", score: 0 };
+    
     setIsStreaming(false);
     setFeedback([]);
     setMetrics([]);
