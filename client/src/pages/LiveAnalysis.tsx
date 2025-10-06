@@ -40,6 +40,7 @@ export default function LiveAnalysis() {
   const [currentGesture, setCurrentGesture] = useState<string>("Neutral");
   const [currentAdjective, setCurrentAdjective] = useState<string>("Neutral");
   const [composureScore, setComposureScore] = useState<number>(0);
+  const [isStable, setIsStable] = useState<boolean>(false);
   const [emotions, setEmotions] = useState<EmotionData>({
     neutral: 0,
     happy: 0,
@@ -134,7 +135,7 @@ export default function LiveAnalysis() {
   };
 
   // Stable adjective selection with hysteresis
-  const getStableAdjective = (score: number): string => {
+  const getStableAdjective = (score: number): { adjective: string; isStable: boolean } => {
     const CHANGE_THRESHOLD = 10; // Only change if score differs by 10+ points
     
     const scoreDiff = Math.abs(score - adjectiveStableRef.current.score);
@@ -142,10 +143,10 @@ export default function LiveAnalysis() {
     if (scoreDiff >= CHANGE_THRESHOLD || adjectiveStableRef.current.adjective === "Neutral") {
       const newAdjective = getComposureAdjective(score);
       adjectiveStableRef.current = { adjective: newAdjective, score };
-      return newAdjective;
+      return { adjective: newAdjective, isStable: false };
     }
     
-    return adjectiveStableRef.current.adjective;
+    return { adjective: adjectiveStableRef.current.adjective, isStable: true };
   };
 
   const initializePoseDetector = async () => {
@@ -619,7 +620,7 @@ export default function LiveAnalysis() {
     });
   };
 
-  // Enhanced composure visualization with skeletal overlay and face box
+  // Enhanced composure visualization with premium skeletal overlay and face box
   const drawComposureAnalysis = (poses: any[], canvas: HTMLCanvasElement, adjective: string) => {
     const ctx = canvas.getContext("2d");
     if (!ctx || !poses.length) return;
@@ -630,7 +631,7 @@ export default function LiveAnalysis() {
       const keypoints = pose.keypoints;
       const getKeypoint = (name: string) => keypoints.find((kp: any) => kp.name === name);
 
-      // Draw skeletal connections
+      // Skeletal connections with hierarchy
       const connections = [
         ["nose", "left_eye"],
         ["nose", "right_eye"],
@@ -650,27 +651,50 @@ export default function LiveAnalysis() {
         ["right_knee", "right_ankle"],
       ];
 
-      // Draw skeletal lines
+      // Draw glowing skeletal lines with gradient
       connections.forEach(([start, end]) => {
         const startKp = getKeypoint(start);
         const endKp = getKeypoint(end);
 
-        if (startKp && endKp && startKp.score > 0.3 && endKp.score > 0.3) {
+        if (startKp && endKp && startKp.score > 0.4 && endKp.score > 0.4) {
+          // Glow effect
+          ctx.shadowBlur = 12;
+          ctx.shadowColor = "rgba(34, 197, 94, 0.6)";
+          
+          // Gradient line
+          const gradient = ctx.createLinearGradient(startKp.x, startKp.y, endKp.x, endKp.y);
+          gradient.addColorStop(0, "rgba(34, 197, 94, 0.9)");
+          gradient.addColorStop(0.5, "rgba(16, 185, 129, 0.9)");
+          gradient.addColorStop(1, "rgba(34, 197, 94, 0.9)");
+          
           ctx.beginPath();
           ctx.moveTo(startKp.x, startKp.y);
           ctx.lineTo(endKp.x, endKp.y);
-          ctx.strokeStyle = "rgba(34, 197, 94, 0.7)"; // Green
-          ctx.lineWidth = 2;
+          ctx.strokeStyle = gradient;
+          ctx.lineWidth = 3;
           ctx.stroke();
+          
+          ctx.shadowBlur = 0;
         }
       });
 
-      // Draw keypoints
+      // Draw enhanced keypoints with glow
       keypoints.forEach((keypoint: any) => {
-        if (keypoint.score > 0.3) {
+        if (keypoint.score > 0.4) {
+          // Outer glow
+          ctx.shadowBlur = 10;
+          ctx.shadowColor = keypoint.score > 0.7 ? "rgba(34, 197, 94, 0.8)" : "rgba(251, 191, 36, 0.8)";
+          
           ctx.beginPath();
-          ctx.arc(keypoint.x, keypoint.y, 5, 0, 2 * Math.PI);
-          ctx.fillStyle = keypoint.score > 0.6 ? "rgba(34, 197, 94, 0.8)" : "rgba(251, 191, 36, 0.8)";
+          ctx.arc(keypoint.x, keypoint.y, 6, 0, 2 * Math.PI);
+          ctx.fillStyle = keypoint.score > 0.7 ? "rgba(34, 197, 94, 0.9)" : "rgba(251, 191, 36, 0.9)";
+          ctx.fill();
+          
+          // Inner bright core
+          ctx.shadowBlur = 0;
+          ctx.beginPath();
+          ctx.arc(keypoint.x, keypoint.y, 3, 0, 2 * Math.PI);
+          ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
           ctx.fill();
         }
       });
@@ -679,7 +703,7 @@ export default function LiveAnalysis() {
       const faceLandmarks = ["nose", "left_eye", "right_eye", "left_ear", "right_ear"];
       const facePoints = faceLandmarks
         .map(name => getKeypoint(name))
-        .filter(kp => kp && kp.score > 0.4);
+        .filter(kp => kp && kp.score > 0.5);
 
       if (facePoints.length >= 3) {
         const faceXs = facePoints.map((kp: any) => kp.x);
@@ -689,36 +713,75 @@ export default function LiveAnalysis() {
         const faceMinY = Math.min(...faceYs);
         const faceMaxY = Math.max(...faceYs);
 
-        // Add padding to face box
-        const padding = 20;
+        const padding = 25;
         const boxX = faceMinX - padding;
         const boxY = faceMinY - padding;
         const boxWidth = (faceMaxX - faceMinX) + (padding * 2);
         const boxHeight = (faceMaxY - faceMinY) + (padding * 2);
+        const cornerRadius = 12;
 
-        // Draw face bounding box
-        ctx.strokeStyle = "rgba(59, 130, 246, 0.9)";
-        ctx.lineWidth = 3;
-        ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+        // Draw premium face box with rounded corners and glow
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = "rgba(59, 130, 246, 0.6)";
+        
+        ctx.strokeStyle = "rgba(59, 130, 246, 0.95)";
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(boxX + cornerRadius, boxY);
+        ctx.lineTo(boxX + boxWidth - cornerRadius, boxY);
+        ctx.arcTo(boxX + boxWidth, boxY, boxX + boxWidth, boxY + cornerRadius, cornerRadius);
+        ctx.lineTo(boxX + boxWidth, boxY + boxHeight - cornerRadius);
+        ctx.arcTo(boxX + boxWidth, boxY + boxHeight, boxX + boxWidth - cornerRadius, boxY + boxHeight, cornerRadius);
+        ctx.lineTo(boxX + cornerRadius, boxY + boxHeight);
+        ctx.arcTo(boxX, boxY + boxHeight, boxX, boxY + boxHeight - cornerRadius, cornerRadius);
+        ctx.lineTo(boxX, boxY + cornerRadius);
+        ctx.arcTo(boxX, boxY, boxX + cornerRadius, boxY, cornerRadius);
+        ctx.closePath();
+        ctx.stroke();
+        
+        ctx.shadowBlur = 0;
 
-        // Draw adjective label above face box
-        ctx.font = "bold 18px Inter, system-ui, sans-serif";
+        // Draw premium adjective label with gradient background
+        ctx.font = "bold 20px Inter, system-ui, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "bottom";
         
-        // Background for text
         const textMetrics = ctx.measureText(adjective);
-        const textWidth = textMetrics.width + 20;
-        const textHeight = 30;
+        const textWidth = textMetrics.width + 30;
+        const textHeight = 36;
         const textX = boxX + boxWidth / 2;
-        const textY = boxY - 10;
+        const textY = boxY - 12;
 
-        ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
-        ctx.fillRect(textX - textWidth / 2, textY - textHeight, textWidth, textHeight);
+        // Gradient background
+        const bgGradient = ctx.createLinearGradient(textX - textWidth/2, textY - textHeight, textX + textWidth/2, textY);
+        bgGradient.addColorStop(0, "rgba(0, 0, 0, 0.85)");
+        bgGradient.addColorStop(0.5, "rgba(20, 20, 30, 0.9)");
+        bgGradient.addColorStop(1, "rgba(0, 0, 0, 0.85)");
+        
+        ctx.fillStyle = bgGradient;
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+        ctx.beginPath();
+        ctx.moveTo(textX - textWidth/2 + 8, textY - textHeight);
+        ctx.lineTo(textX + textWidth/2 - 8, textY - textHeight);
+        ctx.arcTo(textX + textWidth/2, textY - textHeight, textX + textWidth/2, textY - textHeight + 8, 8);
+        ctx.lineTo(textX + textWidth/2, textY - 8);
+        ctx.arcTo(textX + textWidth/2, textY, textX + textWidth/2 - 8, textY, 8);
+        ctx.lineTo(textX - textWidth/2 + 8, textY);
+        ctx.arcTo(textX - textWidth/2, textY, textX - textWidth/2, textY - 8, 8);
+        ctx.lineTo(textX - textWidth/2, textY - textHeight + 8);
+        ctx.arcTo(textX - textWidth/2, textY - textHeight, textX - textWidth/2 + 8, textY - textHeight, 8);
+        ctx.closePath();
+        ctx.fill();
+        
+        ctx.shadowBlur = 0;
 
-        // Draw text
-        ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
-        ctx.fillText(adjective, textX, textY - 7);
+        // Draw text with subtle glow
+        ctx.shadowBlur = 4;
+        ctx.shadowColor = "rgba(59, 130, 246, 0.8)";
+        ctx.fillStyle = "rgba(255, 255, 255, 0.98)";
+        ctx.fillText(adjective, textX, textY - 8);
+        ctx.shadowBlur = 0;
       }
     });
   };
@@ -765,12 +828,13 @@ export default function LiveAnalysis() {
             // Apply smoothing for stability
             const smoothedMetrics = smoothMetrics(rawMetrics);
             const smoothedScore = smoothComposureScore(rawScore);
-            const stableAdjective = getStableAdjective(smoothedScore);
+            const { adjective: stableAdjective, isStable: readingIsStable } = getStableAdjective(smoothedScore);
             
             setMetrics(smoothedMetrics);
             setFeedback(newFeedback);
             setComposureScore(smoothedScore);
             setCurrentAdjective(stableAdjective);
+            setIsStable(readingIsStable && metricsHistoryRef.current.length >= 5);
 
             drawComposureAnalysis(poses, overlayCanvas, stableAdjective);
 
@@ -970,6 +1034,7 @@ export default function LiveAnalysis() {
     setCurrentGesture("Neutral");
     setCurrentAdjective("Neutral");
     setComposureScore(0);
+    setIsStable(false);
     setEmotions({
       neutral: 0, happy: 0, surprise: 0, angry: 0, disgust: 0, fear: 0, sad: 0
     });
@@ -1145,12 +1210,20 @@ export default function LiveAnalysis() {
             {mode === "composure" ? (
               <>
                 <Card className="p-4 bg-gradient-to-br from-blue-600/20 to-purple-600/20 border-blue-500/30">
-                  <h2 className="text-lg font-semibold mb-3">Composure Analysis</h2>
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-lg font-semibold">Composure Analysis</h2>
+                    {isStable && isStreaming && (
+                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-500/20 border border-green-500/30" data-testid="stability-indicator">
+                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                        <span className="text-xs font-medium text-green-400">Locked</span>
+                      </div>
+                    )}
+                  </div>
                   <div className="text-center space-y-2" data-testid="composure-score-display">
-                    <div className="text-4xl font-bold text-blue-400" data-testid="composure-score">
+                    <div className="text-5xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent transition-all duration-500" data-testid="composure-score">
                       {composureScore}%
                     </div>
-                    <div className="text-xl font-semibold text-foreground" data-testid="composure-adjective">
+                    <div className="text-2xl font-semibold text-foreground transition-all duration-700" data-testid="composure-adjective">
                       {currentAdjective}
                     </div>
                     <div className="text-sm text-muted-foreground">
