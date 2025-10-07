@@ -52,6 +52,7 @@
     "@tensorflow/tfjs-core": "^4.22.0",
     "@types/multer": "^2.0.0",
     "@types/uuid": "^10.0.0",
+    "@vladmandic/face-api": "^1.7.15",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
