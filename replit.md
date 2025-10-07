@@ -43,7 +43,6 @@ Preferred communication style: Simple, everyday language.
 
 **Key Endpoints**:
 - `POST /api/analyze` - Full analysis of uploaded media files
-- `POST /api/analyze-expressions` - Facial expression analysis
 - `POST /api/analyze-live` - Lightweight live frame analysis
 - `GET /api/analysis/:id` - Retrieve specific analysis
 - `GET /api/analyses/device/:deviceId` - Get device history
@@ -68,10 +67,10 @@ Preferred communication style: Simple, everyday language.
 ### External Dependencies
 
 **AI/ML Services**:
-- **Google Gemini AI**: Core analysis engine for interpreting body language, facial expressions, and providing detailed feedback. Uses the `@google/genai` SDK with vision capabilities for analyzing uploaded images and videos.
+- **Google Gemini AI**: Core analysis engine for interpreting body language from uploaded files. Uses the `@google/genai` SDK with vision capabilities for analyzing uploaded images and videos.
+- **face-api.js**: Lightweight browser-based face detection and emotion recognition library (@vladmandic/face-api) using TensorFlow.js. Provides real-time local emotion detection without any API calls.
 - **TensorFlow.js**: Client-side ML inference with multiple backends (@tensorflow/tfjs-core, tfjs-backend-webgl, tfjs-backend-cpu)
-- **TensorFlow Models**: Pre-trained models for pose detection (@tensorflow-models/pose-detection) and facial landmarks (@tensorflow-models/face-landmarks-detection)
-- **MediaPipe Pose**: Alternative pose estimation library for enhanced accuracy
+- **TensorFlow Models**: Pre-trained models for pose detection (@tensorflow-models/pose-detection)
 
 **Database** (Prepared but not actively used):
 - **Neon Database**: PostgreSQL serverless database using `@neondatabase/serverless` driver
@@ -122,5 +121,11 @@ Preferred communication style: Simple, everyday language.
   - Higher confidence thresholds (0.5+ for body, 0.6+ for face) to filter noise
   - Real-time gesture recognition (waving, crossed arms, hands on hips, thinking pose, etc.)
   - No server-side AI calls - all processing happens client-side for instant feedback
-- **Live Expressions Mode**: Real-time facial expression recognition with emotion percentages, age estimation, and face mesh visualization. Uses MediaPipe FaceMesh for client-side landmark detection and Gemini AI for emotion analysis every 3 seconds
+- **Live Expressions Mode**: Real-time facial expression recognition with emotion percentages and face mesh visualization. Uses face-api.js (TinyFaceDetector) for complete client-side processing - face detection, 68-point facial landmarks, and 7-emotion recognition (neutral, happy, surprise, angry, disgust, fear, sad). Features include:
+  - Green bounding box overlay around detected faces
+  - Face mesh visualization with landmark points and contour lines
+  - Real-time emotion percentages updated continuously
+  - Optimized for mobile devices (640x480 video resolution, WebGL with CPU fallback)
+  - 100% local processing - no API calls or server dependencies
+  - Status indicators for webcam source, player state, and face tracking
 - Each mode features robust error handling that clears stale data and provides user feedback through toast notifications when analysis fails
