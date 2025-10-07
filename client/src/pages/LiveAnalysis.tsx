@@ -7,11 +7,11 @@ import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import * as poseDetection from "@tensorflow-models/pose-detection";
-import * as faceLandmarksDetection from "@tensorflow-models/face-landmarks-detection";
 import * as tf from "@tensorflow/tfjs-core";
 import "@tensorflow/tfjs-converter";
 import "@tensorflow/tfjs-backend-webgl";
 import "@tensorflow/tfjs-backend-cpu";
+import * as faceapi from "@vladmandic/face-api";
 import { getComposureAdjective } from "@/utils/adjectives";
 
 type AnalysisMode = "composure" | "expressions";
@@ -31,7 +31,6 @@ export default function LiveAnalysis() {
   const [mode, setMode] = useState<AnalysisMode>("composure");
   const [isStreaming, setIsStreaming] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [feedback, setFeedback] = useState<string[]>([]);
   const [metrics, setMetrics] = useState<{ label: string; value: number; color: string }[]>([]);
   const [fps, setFps] = useState(0);
@@ -50,8 +49,6 @@ export default function LiveAnalysis() {
     fear: 0,
     sad: 0
   });
-  const [age, setAge] = useState<number>(0);
-  const [gender, setGender] = useState<string>("Unknown");
   const [faceTracking, setFaceTracking] = useState<boolean>(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -59,9 +56,9 @@ export default function LiveAnalysis() {
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const detectorRef = useRef<poseDetection.PoseDetector | null>(null);
-  const faceDetectorRef = useRef<faceLandmarksDetection.FaceLandmarksDetector | null>(null);
+  const faceApiLoadedRef = useRef<boolean>(false);
   const animationRef = useRef<number | null>(null);
-  const geminiIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const emotionIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastFrameTimeRef = useRef<number>(0);
   const frameCountRef = useRef<number>(0);
   
@@ -193,16 +190,28 @@ export default function LiveAnalysis() {
 
       await tf.ready();
 
-      const model = faceLandmarksDetection.SupportedModels.MediaPipeFaceMesh;
-      const detectorConfig = {
-        runtime: 'tfjs' as const,
-        refineLandmarks: true,
-      };
+      // Try WebGL first, fallback to CPU for compatibility
+      try {
+        await tf.setBackend('webgl');
+        console.log('Using WebGL backend for face detection');
+      } catch (e) {
+        console.warn('WebGL not available, using CPU backend');
+        await tf.setBackend('cpu');
+      }
 
-      faceDetectorRef.current = await faceLandmarksDetection.createDetector(model, detectorConfig);
+      // Load face-api.js models for face detection, landmarks, and emotion recognition
+      const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+      
+      await Promise.all([
+        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL), // Lightweight detector for mobile
+        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+        faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
+      ]);
+
+      faceApiLoadedRef.current = true;
       setFaceDetectorReady(true);
       setIsLoading(false);
-      console.log('Face detector initialized successfully');
+      console.log('Face-API models loaded successfully');
       return true;
     } catch (error) {
       console.error("Error initializing face detector:", error);
@@ -563,56 +572,56 @@ export default function LiveAnalysis() {
     });
   };
 
-  const drawFaceMesh = (faces: any[], canvas: HTMLCanvasElement) => {
+  const drawFaceMesh = (detections: any[], canvas: HTMLCanvasElement) => {
     const ctx = canvas.getContext("2d");
-    if (!ctx || !faces.length) return;
+    if (!ctx || !detections.length) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    faces.forEach((face) => {
-      const keypoints = face.keypoints;
+    detections.forEach((detection) => {
+      const { landmarks, detection: box } = detection;
 
       setFaceTracking(true);
 
-      if (keypoints && keypoints.length > 0) {
-        const xs = keypoints.map((kp: any) => kp.x);
-        const ys = keypoints.map((kp: any) => kp.y);
-        const minX = Math.min(...xs);
-        const maxX = Math.max(...xs);
-        const minY = Math.min(...ys);
-        const maxY = Math.max(...ys);
+      // Draw bounding box with green color
+      const { x, y, width, height } = box.box;
+      
+      ctx.strokeStyle = "rgba(0, 255, 0, 0.9)";
+      ctx.lineWidth = 3;
+      ctx.strokeRect(x, y, width, height);
 
-        ctx.strokeStyle = "rgba(0, 255, 0, 0.8)";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(minX, minY, maxX - minX, maxY - minY);
+      // Draw face mesh with enhanced visualization
+      if (landmarks) {
+        const positions = landmarks.positions;
 
-        ctx.strokeStyle = "rgba(0, 255, 0, 0.6)";
+        // Draw mesh lines with gradient effect
+        ctx.strokeStyle = "rgba(0, 255, 0, 0.5)";
         ctx.lineWidth = 1;
 
-        for (let i = 0; i < keypoints.length; i++) {
-          const kp = keypoints[i];
+        // Draw face contour connections
+        const drawConnections = (indices: number[][]) => {
+          indices.forEach(([start, end]) => {
+            if (start < positions.length && end < positions.length) {
+              const startPoint = positions[start];
+              const endPoint = positions[end];
+              
+              ctx.beginPath();
+              ctx.moveTo(startPoint.x, startPoint.y);
+              ctx.lineTo(endPoint.x, endPoint.y);
+              ctx.stroke();
+            }
+          });
+        };
 
-          if (i % 3 === 0 && i + 3 < keypoints.length) {
-            ctx.beginPath();
-            ctx.moveTo(kp.x, kp.y);
-            const nextKp = keypoints[i + 3];
-            ctx.lineTo(nextKp.x, nextKp.y);
-            ctx.stroke();
-          }
+        // Face outline connections (simplified for better mobile performance)
+        const faceContour = Array.from({ length: 17 }, (_, i) => [i, i + 1]);
+        drawConnections(faceContour);
 
-          if (i < 17 && i + 1 < keypoints.length) {
+        // Draw keypoint markers
+        positions.forEach((position: any, idx: number) => {
+          if (idx % 2 === 0) { // Draw every other point for better performance
             ctx.beginPath();
-            ctx.moveTo(kp.x, kp.y);
-            const nextKp = keypoints[i + 1];
-            ctx.lineTo(nextKp.x, nextKp.y);
-            ctx.stroke();
-          }
-        }
-
-        keypoints.forEach((kp: any, idx: number) => {
-          if (idx % 4 === 0) {
-            ctx.beginPath();
-            ctx.arc(kp.x, kp.y, 2, 0, 2 * Math.PI);
+            ctx.arc(position.x, position.y, 2, 0, 2 * Math.PI);
             ctx.fillStyle = "rgba(0, 255, 0, 0.8)";
             ctx.fill();
           }
@@ -802,14 +811,32 @@ export default function LiveAnalysis() {
 
       try {
         if (mode === "expressions") {
-          if (!faceDetectorRef.current || !faceDetectorReady) return;
-          const faces = await faceDetectorRef.current.estimateFaces(video, {
-            flipHorizontal: false,
-          });
+          if (!faceApiLoadedRef.current || !faceDetectorReady) return;
+          
+          // Detect faces with landmarks and expressions using face-api.js
+          const detections = await faceapi
+            .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({
+              inputSize: 512,
+              scoreThreshold: 0.5
+            }))
+            .withFaceLandmarks()
+            .withFaceExpressions();
 
-          if (faces && faces.length > 0) {
-            drawFaceMesh(faces, overlayCanvas);
+          if (detections && detections.length > 0) {
+            drawFaceMesh(detections, overlayCanvas);
             setFaceTracking(true);
+
+            // Update emotions from face-api.js (real-time, no API needed)
+            const expressions = detections[0].expressions;
+            setEmotions({
+              neutral: Math.round(expressions.neutral * 100),
+              happy: Math.round(expressions.happy * 100),
+              surprise: Math.round(expressions.surprised * 100),
+              angry: Math.round(expressions.angry * 100),
+              disgust: Math.round(expressions.disgusted * 100),
+              fear: Math.round(expressions.fearful * 100),
+              sad: Math.round(expressions.sad * 100),
+            });
           } else {
             setFaceTracking(false);
             const ctx = overlayCanvas.getContext("2d");
@@ -872,91 +899,8 @@ export default function LiveAnalysis() {
 
 
 
-  const sendFrameToGeminiExpressions = useCallback(async () => {
-    if (!videoRef.current || !canvasRef.current || isAnalyzing) return;
-
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const context = canvas.getContext("2d");
-
-    if (!context) return;
-
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    canvas.toBlob(async (blob) => {
-      if (!blob) return;
-
-      setIsAnalyzing(true);
-      try {
-        const formData = new FormData();
-        formData.append("file", blob, "frame.jpg");
-
-        const response = await fetch("/api/analyze-expressions", {
-          method: "POST",
-          body: formData,
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-
-          if (data.emotions) {
-            setEmotions(data.emotions);
-          }
-          if (data.age) {
-            setAge(data.age);
-          }
-          if (data.gender) {
-            setGender(data.gender);
-          }
-        } else {
-          const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
-          console.error("Expression analysis failed:", errorData);
-
-          setEmotions({
-            neutral: 0,
-            happy: 0,
-            surprise: 0,
-            angry: 0,
-            disgust: 0,
-            fear: 0,
-            sad: 0
-          });
-          setAge(0);
-          setGender("Unknown");
-
-          toast({
-            title: "Analysis Error",
-            description: "Failed to analyze facial expressions. Please try again.",
-            variant: "destructive",
-          });
-        }
-      } catch (error) {
-        console.error("Gemini expression analysis error:", error);
-
-        setEmotions({
-          neutral: 0,
-          happy: 0,
-          surprise: 0,
-          angry: 0,
-          disgust: 0,
-          fear: 0,
-          sad: 0
-        });
-        setAge(0);
-        setGender("Unknown");
-
-        toast({
-          title: "Connection Error",
-          description: "Could not connect to analysis service.",
-          variant: "destructive",
-        });
-      } finally {
-        setIsAnalyzing(false);
-      }
-    }, "image/jpeg", 0.85);
-  }, [isAnalyzing, toast]);
+  // Note: Emotion detection is now done locally using face-api.js in the detection loop
+  // No API calls needed - all processing happens in the browser!
 
   const startCamera = async () => {
     if (mode === "composure") {
@@ -986,8 +930,13 @@ export default function LiveAnalysis() {
     }
 
     try {
+      // Optimized video settings for mobile devices
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user", width: 1280, height: 720 },
+        video: { 
+          facingMode: "user", 
+          width: { ideal: 640 },  // Lower resolution for better mobile performance
+          height: { ideal: 480 },
+        },
         audio: false,
       });
 
@@ -997,13 +946,8 @@ export default function LiveAnalysis() {
         setIsStreaming(true);
 
         videoRef.current.onloadeddata = () => {
-          if (mode === "expressions" && faceDetectorReady) {
-            if (geminiIntervalRef.current) clearInterval(geminiIntervalRef.current);
-            geminiIntervalRef.current = setInterval(() => {
-              sendFrameToGeminiExpressions();
-            }, 3000);
-          }
-          detectLoop(); // Start the combined detection loop
+          // Start the detection loop for real-time analysis
+          detectLoop();
         };
       }
     } catch (error) {
@@ -1024,9 +968,9 @@ export default function LiveAnalysis() {
       cancelAnimationFrame(animationRef.current);
       animationRef.current = null;
     }
-    if (geminiIntervalRef.current) {
-      clearInterval(geminiIntervalRef.current);
-      geminiIntervalRef.current = null;
+    if (emotionIntervalRef.current) {
+      clearInterval(emotionIntervalRef.current);
+      emotionIntervalRef.current = null;
     }
     
     // Clear smoothing buffers for fresh start
@@ -1046,8 +990,6 @@ export default function LiveAnalysis() {
     setEmotions({
       neutral: 0, happy: 0, surprise: 0, angry: 0, disgust: 0, fear: 0, sad: 0
     });
-    setAge(0);
-    setGender("Unknown");
   };
 
   const switchMode = (newMode: AnalysisMode) => {
@@ -1066,9 +1008,6 @@ export default function LiveAnalysis() {
       stopCamera();
       if (detectorRef.current) {
         detectorRef.current.dispose();
-      }
-      if (faceDetectorRef.current) {
-        faceDetectorRef.current.dispose();
       }
     };
   }, [mode]);
@@ -1160,13 +1099,6 @@ export default function LiveAnalysis() {
                   data-testid="overlay-canvas"
                 />
                 <canvas ref={canvasRef} className="hidden" />
-
-                {isAnalyzing && (
-                  <div className="absolute top-4 right-4 bg-primary text-primary-foreground px-3 py-1 rounded-full flex items-center gap-2 shadow-lg" data-testid="deep-analysis-indicator">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span className="text-sm">Deep Analysis</span>
-                  </div>
-                )}
 
                 {isStreaming && mode === "composure" && currentGesture !== "Neutral" && (
                   <div className="absolute top-4 left-4 bg-purple-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-xl animate-pulse">
@@ -1349,16 +1281,6 @@ export default function LiveAnalysis() {
                       <span className="text-gray-300">Markers: Scale to face</span>
                     </div>
                   </div>
-                  {age > 0 && (
-                    <div className="mt-4 pt-4 border-t border-gray-700">
-                      <div className="text-sm text-gray-300">
-                        <span className="font-semibold">Age Estimate:</span> {age} years
-                      </div>
-                      <div className="text-sm text-gray-300 mt-1">
-                        <span className="font-semibold">Gender:</span> {gender}
-                      </div>
-                    </div>
-                  )}
                 </Card>
               </>
             )}

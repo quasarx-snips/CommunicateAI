@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import multer from "multer";
 import { storage } from "./storage";
-import { analyzeBodyLanguage, analyzeFacialExpressions } from "./gemini";
+import { analyzeBodyLanguage } from "./gemini";
 import { insertAnalysisSchema } from "@shared/schema";
 
 const upload = multer({ 
@@ -11,23 +11,8 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Facial expression analysis endpoint (for Expressions mode)
-  app.post("/api/analyze-expressions", upload.single("file"), async (req, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ error: "No file uploaded" });
-      }
-
-      const { buffer, mimetype } = req.file;
-
-      const analysisResult = await analyzeFacialExpressions(buffer, mimetype);
-
-      res.json(analysisResult);
-    } catch (error) {
-      console.error("Facial expression analysis error:", error);
-      res.status(500).json({ error: "Failed to analyze expressions" });
-    }
-  });
+  // Note: Facial expression analysis is now done locally in the browser using face-api.js
+  // No server-side processing needed for expression detection
 
   // Live analysis endpoint (lightweight, faster responses)
   app.post("/api/analyze-live", upload.single("file"), async (req, res) => {
