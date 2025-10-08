@@ -1546,11 +1546,15 @@ export default function LiveAnalysis() {
     return "Maintaining neutral stance";
   };
 
-  const drawPoseLandmarks = (poses: any[], canvas: HTMLCanvasElement) => {
+  const drawPoseLandmarks = (poses: any[], canvas: HTMLCanvasElement, scaleX: number = 1, scaleY: number = 1) => {
     const ctx = canvas.getContext("2d");
     if (!ctx || !poses.length) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Apply coordinate scaling for proper overlay alignment
+    ctx.save();
+    ctx.scale(scaleX, scaleY);
 
     poses.forEach((pose) => {
       const keypoints = pose.keypoints;
@@ -1639,13 +1643,19 @@ export default function LiveAnalysis() {
         ctx.stroke();
       }
     });
+    
+    ctx.restore();
   };
 
-  const drawFaceMesh = (detections: any[], canvas: HTMLCanvasElement) => {
+  const drawFaceMesh = (detections: any[], canvas: HTMLCanvasElement, scaleX: number = 1, scaleY: number = 1) => {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Apply coordinate scaling for proper overlay alignment
+    ctx.save();
+    ctx.scale(scaleX, scaleY);
 
     if (detections && detections.length > 0) {
       setFaceTracking(true);
@@ -1802,14 +1812,20 @@ export default function LiveAnalysis() {
     } else {
       setFaceTracking(false);
     }
+    
+    ctx.restore();
   };
 
   // SECURITY MODE VISUALIZATION
-  const drawSecurityOverlay = (poses: any[], canvas: HTMLCanvasElement, metrics: SecurityMetrics) => {
+  const drawSecurityOverlay = (poses: any[], canvas: HTMLCanvasElement, metrics: SecurityMetrics, scaleX: number = 1, scaleY: number = 1) => {
     const ctx = canvas.getContext("2d");
     if (!ctx || !poses.length) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Apply coordinate scaling for proper overlay alignment
+    ctx.save();
+    ctx.scale(scaleX, scaleY);
 
     const pose = poses[0];
     const keypoints = pose.keypoints;
@@ -1931,14 +1947,20 @@ export default function LiveAnalysis() {
 
     ctx.fillStyle = "white";
     ctx.fillText(threatText, textX, textY);
+    
+    ctx.restore();
   };
 
   // EDUCATION MODE VISUALIZATION
-  const drawEducationOverlay = (poses: any[], canvas: HTMLCanvasElement, metrics: EducationMetrics) => {
+  const drawEducationOverlay = (poses: any[], canvas: HTMLCanvasElement, metrics: EducationMetrics, scaleX: number = 1, scaleY: number = 1) => {
     const ctx = canvas.getContext("2d");
     if (!ctx || !poses.length) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Apply coordinate scaling for proper overlay alignment
+    ctx.save();
+    ctx.scale(scaleX, scaleY);
 
     const pose = poses[0];
     const keypoints = pose.keypoints;
@@ -2060,14 +2082,20 @@ export default function LiveAnalysis() {
 
     ctx.fillStyle = "white";
     ctx.fillText(scoreText, textX, textY);
+    
+    ctx.restore();
   };
 
   // INTERVIEW MODE VISUALIZATION
-  const drawInterviewOverlay = (poses: any[], canvas: HTMLCanvasElement, metrics: InterviewMetrics) => {
+  const drawInterviewOverlay = (poses: any[], canvas: HTMLCanvasElement, metrics: InterviewMetrics, scaleX: number = 1, scaleY: number = 1) => {
     const ctx = canvas.getContext("2d");
     if (!ctx || !poses.length) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Apply coordinate scaling for proper overlay alignment
+    ctx.save();
+    ctx.scale(scaleX, scaleY);
 
     const pose = poses[0];
     const keypoints = pose.keypoints;
@@ -2149,14 +2177,20 @@ export default function LiveAnalysis() {
 
     ctx.fillStyle = "white";
     ctx.fillText(scoreText, textX, textY);
+    
+    ctx.restore();
   };
 
   // Enhanced composure visualization with premium skeletal overlay and face box
-  const drawComposureAnalysis = (poses: any[], canvas: HTMLCanvasElement, adjective: string) => {
+  const drawComposureAnalysis = (poses: any[], canvas: HTMLCanvasElement, adjective: string, scaleX: number = 1, scaleY: number = 1) => {
     const ctx = canvas.getContext("2d");
     if (!ctx || !poses.length) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Apply coordinate scaling for proper overlay alignment
+    ctx.save();
+    ctx.scale(scaleX, scaleY);
 
     poses.forEach((pose) => {
       const keypoints = pose.keypoints;
@@ -2342,6 +2376,8 @@ export default function LiveAnalysis() {
         ctx.shadowBlur = 0;
       }
     });
+    
+    ctx.restore();
   };
 
 
@@ -2354,8 +2390,18 @@ export default function LiveAnalysis() {
     const overlayCanvas = overlayCanvasRef.current;
 
     if (video.readyState === 4) {
-      overlayCanvas.width = video.videoWidth;
-      overlayCanvas.height = video.videoHeight;
+      // Set canvas dimensions to match the displayed video size for proper overlay alignment
+      const displayWidth = video.clientWidth;
+      const displayHeight = video.clientHeight;
+      
+      if (overlayCanvas.width !== displayWidth || overlayCanvas.height !== displayHeight) {
+        overlayCanvas.width = displayWidth;
+        overlayCanvas.height = displayHeight;
+      }
+
+      // Calculate scale factors for coordinate transformation
+      const scaleX = displayWidth / video.videoWidth;
+      const scaleY = displayHeight / video.videoHeight;
 
       try {
         if (mode === "security" || mode === "education" || mode === "interview") {
@@ -2396,20 +2442,20 @@ export default function LiveAnalysis() {
                 const secMetrics = analyzeSecurityBehavior(poses[0].keypoints, expressions, faceLandmarks);
                 setSecurityMetrics(secMetrics);
                 
-                // Visual feedback
-                drawSecurityOverlay(poses, overlayCanvas, secMetrics);
+                // Visual feedback with coordinate scaling
+                drawSecurityOverlay(poses, overlayCanvas, secMetrics, scaleX, scaleY);
               } else if (mode === "education") {
                 const eduMetrics = analyzeEducationBehavior(poses[0].keypoints, expressions, faceLandmarks);
                 setEducationMetrics(eduMetrics);
                 
                 // Visual feedback
-                drawEducationOverlay(poses, overlayCanvas, eduMetrics);
+                drawEducationOverlay(poses, overlayCanvas, eduMetrics, scaleX, scaleY);
               } else if (mode === "interview") {
                 const intMetrics = analyzeInterviewBehavior(poses[0].keypoints, expressions, faceLandmarks);
                 setInterviewMetrics(intMetrics);
                 
                 // Visual feedback
-                drawInterviewOverlay(poses, overlayCanvas, intMetrics);
+                drawInterviewOverlay(poses, overlayCanvas, intMetrics, scaleX, scaleY);
               }
 
               lastPoseRef.current = poses[0];
@@ -2431,7 +2477,7 @@ export default function LiveAnalysis() {
             .withFaceExpressions();
 
           if (detections && detections.length > 0) {
-            drawFaceMesh(detections, overlayCanvas);
+            drawFaceMesh(detections, overlayCanvas, scaleX, scaleY);
             setFaceTracking(true);
 
             // Update emotions from face-api.js (real-time, no API needed)
@@ -2478,7 +2524,7 @@ export default function LiveAnalysis() {
               setCurrentAdjective(stableAdjective);
               setIsStable(readingIsStable && metricsHistoryRef.current.length >= 5);
 
-              drawComposureAnalysis(poses, overlayCanvas, stableAdjective);
+              drawComposureAnalysis(poses, overlayCanvas, stableAdjective, scaleX, scaleY);
 
               const gesture = detectGesture(poses[0].keypoints);
               setCurrentGesture(gesture);
@@ -2505,7 +2551,7 @@ export default function LiveAnalysis() {
             }
             
             setCurrentDecoding(decodedText);
-            drawPoseLandmarks(poses, overlayCanvas);
+            drawPoseLandmarks(poses, overlayCanvas, scaleX, scaleY);
             lastPoseRef.current = poses[0];
           } else {
             const ctx = overlayCanvas.getContext("2d");
@@ -2747,7 +2793,8 @@ export default function LiveAnalysis() {
                 />
                 <canvas
                   ref={overlayCanvasRef}
-                  className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                  className="absolute inset-0 w-full h-full pointer-events-none z-10"
+                  style={{ imageRendering: 'auto' }}
                   data-testid="overlay-canvas"
                 />
                 <canvas ref={canvasRef} className="hidden" />
