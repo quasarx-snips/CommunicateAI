@@ -8,6 +8,7 @@ import * as faceapi from "@vladmandic/face-api";
 
 interface ModelCache {
   poseDetector: poseDetection.PoseDetector | null;
+  poseDetectorType: 'lightning' | 'thunder' | null;
   faceApiLoaded: boolean;
   tfBackend: string | null;
 }
@@ -24,6 +25,7 @@ const CACHE_VERSION = 'v1';
 class ModelLoaderService {
   private cache: ModelCache = {
     poseDetector: null,
+    poseDetectorType: null,
     faceApiLoaded: false,
     tfBackend: null,
   };
@@ -133,19 +135,34 @@ class ModelLoaderService {
     return this.initPromise;
   }
 
-  private async loadPoseDetector(): Promise<void> {
-    if (this.cache.poseDetector) {
-      console.log('♻️ Reusing cached pose detector');
+  private async loadPoseDetector(useHighAccuracy: boolean = false): Promise<void> {
+    const requestedType = useHighAccuracy ? 'thunder' : 'lightning';
+    
+    // Check if we already have the correct model type cached
+    if (this.cache.poseDetector && this.cache.poseDetectorType === requestedType) {
+      console.log(`♻️ Reusing cached pose detector (${requestedType.toUpperCase()})`);
       return;
     }
 
-    console.log('📥 Loading pose detector...');
+    // Dispose old detector if switching types
+    if (this.cache.poseDetector && this.cache.poseDetectorType !== requestedType) {
+      console.log(`🔄 Switching from ${this.cache.poseDetectorType} to ${requestedType}...`);
+      await this.cache.poseDetector.dispose();
+      this.cache.poseDetector = null;
+      this.cache.poseDetectorType = null;
+    }
+
+    console.log(`📥 Loading pose detector (${useHighAccuracy ? 'High Accuracy' : 'Fast'})...`);
     const model = poseDetection.SupportedModels.MoveNet;
     const detectorConfig = {
-      modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
+      modelType: useHighAccuracy 
+        ? poseDetection.movenet.modelType.SINGLEPOSE_THUNDER // Better accuracy, slower
+        : poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING, // Faster
     };
 
     this.cache.poseDetector = await poseDetection.createDetector(model, detectorConfig);
+    this.cache.poseDetectorType = requestedType;
+    console.log(`✅ Pose detector loaded: ${requestedType.toUpperCase()} ${useHighAccuracy ? '(High Accuracy)' : '(Fast)'}`);
   }
 
   private async loadFaceAPI(): Promise<void> {
@@ -211,6 +228,7 @@ class ModelLoaderService {
     if (this.cache.poseDetector) {
       await this.cache.poseDetector.dispose();
       this.cache.poseDetector = null;
+      this.cache.poseDetectorType = null;
     }
     this.cache.faceApiLoaded = false;
     this.cache.tfBackend = null;

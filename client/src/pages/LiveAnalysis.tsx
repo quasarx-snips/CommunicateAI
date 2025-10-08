@@ -122,6 +122,7 @@ export default function LiveAnalysis() {
   const lastDecodedActionRef = useRef<string>("");
   const decodingHistoryRef = useRef<string[]>([]);
   const lastPoseRef = useRef<any>(null);
+  const performanceStatsRef = useRef<{ frameTime: number; poseTime: number; faceTime: number }>({ frameTime: 0, poseTime: 0, faceTime: 0 });
 
   const { toast } = useToast();
 
@@ -2040,26 +2041,41 @@ export default function LiveAnalysis() {
         if (mode === "education" || mode === "interview") {
           if (!detectorRef.current || !detectorReady) return;
 
-          // Smart frame skipping for performance
-          const shouldProcess = frameSkipCounterRef.current % 2 === 0;
+          // Adaptive frame skipping based on current FPS (target: 30 FPS minimum)
+          const targetFPS = 30;
+          const currentFPS = fps > 0 ? fps : 30;
+          const skipFrames = currentFPS < targetFPS ? 1 : Math.floor(currentFPS / targetFPS);
+          const currentFrameCount = frameSkipCounterRef.current;
+          const shouldProcess = currentFrameCount % Math.max(1, skipFrames) === 0;
+          // Check for face detection BEFORE incrementing (so alternating works correctly)
+          const runFaceDetection = currentFrameCount % 4 === 0; // Run face detection every 4th frame
           frameSkipCounterRef.current++;
 
           if (shouldProcess) {
+            const frameStart = performance.now();
+            
+            // Pose detection with timing
+            const poseStart = performance.now();
             const poses = await detectorRef.current.estimatePoses(video, {
               flipHorizontal: false,
             });
+            performanceStatsRef.current.poseTime = performance.now() - poseStart;
 
-            // Also get facial expressions and landmarks for comprehensive analysis
+            // Optimized facial analysis (run less frequently for better performance)
             let expressions = null;
             let faceLandmarks = null;
-            if (faceApiLoadedRef.current && faceDetectorReady) {
+            
+            if (faceApiLoadedRef.current && faceDetectorReady && runFaceDetection) {
+              const faceStart = performance.now();
               const detections = await faceapi
                 .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({
-                  inputSize: 512,
-                  scoreThreshold: 0.5
+                  inputSize: 224, // Reduced from 512 for better performance
+                  scoreThreshold: 0.4 // Slightly lower for better detection
                 }))
                 .withFaceLandmarks()
                 .withFaceExpressions();
+
+              performanceStatsRef.current.faceTime = performance.now() - faceStart;
 
               if (detections && detections.length > 0) {
                 expressions = detections[0].expressions;
@@ -2094,14 +2110,17 @@ export default function LiveAnalysis() {
         } else if (mode === "expressions") {
           if (!faceApiLoadedRef.current || !faceDetectorReady) return;
 
-          // Detect faces with landmarks and expressions using face-api.js
+          // Optimized face detection for expressions mode
+          const frameStart = performance.now();
           const detections = await faceapi
             .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({
-              inputSize: 512,
-              scoreThreshold: 0.5
+              inputSize: 256, // Optimized size for better performance
+              scoreThreshold: 0.4 // Balanced detection threshold
             }))
             .withFaceLandmarks()
             .withFaceExpressions();
+          
+          performanceStatsRef.current.faceTime = performance.now() - frameStart;
 
           if (detections && detections.length > 0) {
             drawFaceMesh(detections, overlayCanvas, scaleX, scaleY);
@@ -2126,14 +2145,17 @@ export default function LiveAnalysis() {
         } else if (mode === "composure") {
           if (!detectorRef.current || !detectorReady) return;
 
-          // Smart frame skipping: process every 2nd frame when stable for better performance
-          const shouldProcess = !isStable || frameSkipCounterRef.current % 2 === 0;
+          // Optimized frame skipping: process every 3rd frame when stable for better performance
+          const currentFrameCount = frameSkipCounterRef.current;
+          const shouldProcess = !isStable || currentFrameCount % 3 === 0;
           frameSkipCounterRef.current++;
 
           if (shouldProcess) {
+            const frameStart = performance.now();
             const poses = await detectorRef.current.estimatePoses(video, {
               flipHorizontal: false,
             });
+            performanceStatsRef.current.poseTime = performance.now() - frameStart;
 
             if (poses && poses.length > 0) {
               const { metrics: rawMetrics, feedback: newFeedback, composureScore: rawScore } = calculatePostureMetrics(
@@ -2163,26 +2185,35 @@ export default function LiveAnalysis() {
         } else if (mode === "decoder") {
           if (!detectorRef.current || !detectorReady) return;
 
-          const poses = await detectorRef.current.estimatePoses(video, {
-            flipHorizontal: false,
-          });
+          // Optimized frame skipping for decoder mode
+          const currentFrameCount = frameSkipCounterRef.current;
+          const shouldProcess = currentFrameCount % 2 === 0;
+          frameSkipCounterRef.current++;
 
-          if (poses && poses.length > 0) {
-            const decodedText = decodeBodyLanguage(poses[0].keypoints);
+          if (shouldProcess) {
+            const frameStart = performance.now();
+            const poses = await detectorRef.current.estimatePoses(video, {
+              flipHorizontal: false,
+            });
+            performanceStatsRef.current.poseTime = performance.now() - frameStart;
 
-            // Only add to history if it's a new action (not "Maintaining neutral stance")
-            if (decodedText !== lastDecodedActionRef.current && decodedText !== "Maintaining neutral stance") {
-              lastDecodedActionRef.current = decodedText;
-              decodingHistoryRef.current.push(decodedText);
-              setDecodedTexts([...decodingHistoryRef.current]);
+            if (poses && poses.length > 0) {
+              const decodedText = decodeBodyLanguage(poses[0].keypoints);
+
+              // Only add to history if it's a new action (not "Maintaining neutral stance")
+              if (decodedText !== lastDecodedActionRef.current && decodedText !== "Maintaining neutral stance") {
+                lastDecodedActionRef.current = decodedText;
+                decodingHistoryRef.current.push(decodedText);
+                setDecodedTexts([...decodingHistoryRef.current]);
+              }
+
+              setCurrentDecoding(decodedText);
+              drawPoseLandmarks(poses, overlayCanvas, scaleX, scaleY);
+              lastPoseRef.current = poses[0];
+            } else {
+              const ctx = overlayCanvas.getContext("2d");
+              if (ctx) ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
             }
-
-            setCurrentDecoding(decodedText);
-            drawPoseLandmarks(poses, overlayCanvas, scaleX, scaleY);
-            lastPoseRef.current = poses[0];
-          } else {
-            const ctx = overlayCanvas.getContext("2d");
-            if (ctx) ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
           }
         }
 
