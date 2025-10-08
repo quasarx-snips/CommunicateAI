@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Analysis, type InsertAnalysis } from "@shared/schema";
+import { type User, type InsertUser, type Analysis, type InsertAnalysis, type LiveSession, type InsertLiveSession } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -9,15 +9,24 @@ export interface IStorage {
   createAnalysis(analysis: InsertAnalysis): Promise<Analysis>;
   getAnalysis(id: string): Promise<Analysis | undefined>;
   getAllAnalyses(): Promise<Analysis[]>;
+
+  createLiveSession(session: InsertLiveSession): Promise<LiveSession>;
+  getLiveSession(id: string): Promise<LiveSession | undefined>;
+  updateLiveSession(id: string, updates: Partial<InsertLiveSession>): Promise<LiveSession | undefined>;
+  getLiveSessionsByDevice(deviceId: string): Promise<LiveSession[]>;
+  deleteLiveSession(id: string): Promise<boolean>;
+  clearDeviceLiveSessions(deviceId: string): Promise<number>;
 }
 
 export class MemStorage implements IStorage {
   private users: Map<string, User>;
   private analyses: Map<string, Analysis>;
+  private liveSessions: Map<string, LiveSession>;
 
   constructor() {
     this.users = new Map();
     this.analyses = new Map();
+    this.liveSessions = new Map();
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -77,6 +86,65 @@ export class MemStorage implements IStorage {
     let deletedCount = 0;
     for (const analysis of deviceAnalyses) {
       if (this.analyses.delete(analysis.id)) {
+        deletedCount++;
+      }
+    }
+    return deletedCount;
+  }
+
+  async createLiveSession(insertSession: InsertLiveSession): Promise<LiveSession> {
+    const id = randomUUID();
+    const session: LiveSession = {
+      id,
+      sessionName: insertSession.sessionName,
+      mode: insertSession.mode,
+      duration: insertSession.duration,
+      thumbnailUrl: insertSession.thumbnailUrl ?? null,
+      result: insertSession.result as any,
+      deviceId: insertSession.deviceId ?? null,
+      createdAt: new Date(),
+    };
+    this.liveSessions.set(id, session);
+    return session;
+  }
+
+  async getLiveSession(id: string): Promise<LiveSession | undefined> {
+    return this.liveSessions.get(id);
+  }
+
+  async updateLiveSession(id: string, updates: Partial<InsertLiveSession>): Promise<LiveSession | undefined> {
+    const existing = this.liveSessions.get(id);
+    if (!existing) return undefined;
+
+    const updated: LiveSession = {
+      ...existing,
+      ...(updates.sessionName !== undefined && { sessionName: updates.sessionName }),
+      ...(updates.mode !== undefined && { mode: updates.mode }),
+      ...(updates.duration !== undefined && { duration: updates.duration }),
+      ...(updates.thumbnailUrl !== undefined && { thumbnailUrl: updates.thumbnailUrl ?? null }),
+      ...(updates.result !== undefined && { result: updates.result as any }),
+      ...(updates.deviceId !== undefined && { deviceId: updates.deviceId ?? null }),
+    };
+
+    this.liveSessions.set(id, updated);
+    return updated;
+  }
+
+  async getLiveSessionsByDevice(deviceId: string): Promise<LiveSession[]> {
+    return Array.from(this.liveSessions.values())
+      .filter(session => session.deviceId === deviceId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async deleteLiveSession(id: string): Promise<boolean> {
+    return this.liveSessions.delete(id);
+  }
+
+  async clearDeviceLiveSessions(deviceId: string): Promise<number> {
+    const deviceSessions = await this.getLiveSessionsByDevice(deviceId);
+    let deletedCount = 0;
+    for (const session of deviceSessions) {
+      if (this.liveSessions.delete(session.id)) {
         deletedCount++;
       }
     }

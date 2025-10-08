@@ -64,3 +64,60 @@ export const analysisSchema = insertAnalysisSchema.extend({
 
 export type InsertAnalysis = z.infer<typeof insertAnalysisSchema>;
 export type Analysis = typeof analyses.$inferSelect;
+
+// Live Analysis Session Schema
+export const liveSessionResultSchema = z.object({
+  mode: z.enum(["education", "interview", "expressions", "composure", "decoder"]),
+  duration: z.number(),
+  averageMetrics: z.array(z.object({
+    label: z.string(),
+    value: z.number(),
+    color: z.string(),
+  })),
+  summary: z.object({
+    overallScore: z.number(),
+    rating: z.enum(["excellent", "good", "fair", "poor"]),
+    strengths: z.array(z.string()),
+    improvements: z.array(z.string()),
+    keyInsights: z.array(z.string()),
+  }),
+  modeSpecificData: z.record(z.any()).optional(),
+  peakMetrics: z.record(z.number()).optional(),
+  timeline: z.array(z.object({
+    timestamp: z.number(),
+    metrics: z.array(z.object({
+      label: z.string(),
+      value: z.number(),
+    })),
+  })).optional(),
+});
+
+export type LiveSessionResult = z.infer<typeof liveSessionResultSchema>;
+
+export const liveSessions = pgTable("live_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionName: text("session_name").notNull(),
+  mode: text("mode").notNull(),
+  duration: integer("duration").notNull(),
+  thumbnailUrl: text("thumbnail_url"),
+  result: jsonb("result").notNull().$type<LiveSessionResult>(),
+  deviceId: text("device_id"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertLiveSessionSchema = createInsertSchema(liveSessions).pick({
+  sessionName: true,
+  mode: true,
+  duration: true,
+  thumbnailUrl: true,
+  result: true,
+  deviceId: true,
+});
+
+export const liveSessionSchema = insertLiveSessionSchema.extend({
+  id: z.string(),
+  createdAt: z.date(),
+});
+
+export type InsertLiveSession = z.infer<typeof insertLiveSessionSchema>;
+export type LiveSession = typeof liveSessions.$inferSelect;

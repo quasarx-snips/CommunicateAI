@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Camera, Loader2, ArrowLeft, StopCircle, Activity, GraduationCap, Briefcase, AlertTriangle, Eye, Zap } from "lucide-react";
+import { Camera, Loader2, ArrowLeft, StopCircle, Activity, GraduationCap, Briefcase, AlertTriangle, Eye, Zap, Save, Download } from "lucide-react";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
@@ -10,6 +10,8 @@ import * as poseDetection from "@tensorflow-models/pose-detection";
 import * as faceapi from "@vladmandic/face-api";
 import { getComposureAdjective } from "@/utils/adjectives";
 import { modelLoader } from "@/lib/modelLoader";
+import { createLiveSession } from "@/lib/api";
+import type { LiveSessionResult } from "@shared/schema";
 
 type AnalysisMode = "education" | "interview" | "expressions" | "composure" | "decoder";
 
@@ -92,6 +94,13 @@ export default function LiveAnalysis() {
   const [faceTracking, setFaceTracking] = useState<boolean>(false);
   const [decodedTexts, setDecodedTexts] = useState<string[]>([]);
   const [currentDecoding, setCurrentDecoding] = useState<string>("");
+
+  // Session recording state
+  const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
+  const [sessionDuration, setSessionDuration] = useState<number>(0);
+  const [isSaving, setIsSaving] = useState(false);
+  const metricsTimelineRef = useRef<Array<{ timestamp: number; metrics: Array<{ label: string; value: number }> }>>([]);
+  const sessionPeakMetricsRef = useRef<Record<string, number>>({});
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -2198,6 +2207,129 @@ export default function LiveAnalysis() {
   // Note: Emotion detection is now done locally using face-api.js in the detection loop
   // No API calls needed - all processing happens in the browser!
 
+  // Session recording functions
+  const captureThumbnail = (): string | null => {
+    const video = videoRef.current;
+    if (!video) return null;
+
+    const thumbnailCanvas = document.createElement('canvas');
+    thumbnailCanvas.width = 320;
+    thumbnailCanvas.height = 240;
+    const ctx = thumbnailCanvas.getContext('2d');
+    if (!ctx) return null;
+
+    ctx.drawImage(video, 0, 0, thumbnailCanvas.width, thumbnailCanvas.height);
+    return thumbnailCanvas.toDataURL('image/jpeg', 0.8);
+  };
+
+  const calculateSessionSummary = (): LiveSessionResult => {
+    const avgMetrics = metrics.map(m => ({ label: m.label, value: m.value, color: m.color }));
+    const overallScore = metrics.length > 0 
+      ? Math.round(metrics.reduce((sum, m) => sum + m.value, 0) / metrics.length) 
+      : 0;
+
+    const rating = overallScore >= 80 ? "excellent" : overallScore >= 65 ? "good" : overallScore >= 50 ? "fair" : "poor";
+
+    const strengths: string[] = [];
+    const improvements: string[] = [];
+    const keyInsights: string[] = [];
+
+    if (mode === "education") {
+      if (educationMetrics.attentionScore >= 70) strengths.push("Strong attention and focus");
+      if (educationMetrics.focusQuality >= 70) strengths.push("High quality engagement");
+      if (educationMetrics.attentionScore < 60) improvements.push("Improve attention and focus");
+      if (educationMetrics.distractionFlags.length > 0) improvements.push("Reduce distractions");
+      keyInsights.push(`Engagement Level: ${educationMetrics.engagementLevel}`);
+      keyInsights.push(`Learning Readiness: ${educationMetrics.learningReadiness}%`);
+    } else if (mode === "interview") {
+      if (interviewMetrics.confidenceScore >= 70) strengths.push("Confident body language");
+      if (interviewMetrics.communicationQuality >= 70) strengths.push("Excellent communication quality");
+      if (interviewMetrics.confidenceScore < 60) improvements.push("Build more confidence");
+      if (interviewMetrics.stressIndicators.length > 0) improvements.push("Manage stress indicators");
+      keyInsights.push(`Professionalism: ${interviewMetrics.professionalismLevel}`);
+      keyInsights.push(`Authenticity: ${interviewMetrics.authenticityScore}%`);
+    } else if (mode === "composure") {
+      if (composureScore >= 70) strengths.push("Strong overall composure");
+      if (composureScore < 60) improvements.push("Improve overall composure");
+      keyInsights.push(`Composure: ${currentAdjective}`);
+      keyInsights.push(`Stability: ${isStable ? "Locked" : "Variable"}`);
+    } else if (mode === "expressions") {
+      const dominantEmotion = Object.entries(emotions).reduce((a, b) => a[1] > b[1] ? a : b);
+      keyInsights.push(`Dominant emotion: ${dominantEmotion[0]} (${dominantEmotion[1]}%)`);
+      if (emotions.happy > 50) strengths.push("Positive emotional expression");
+      if (emotions.angry > 40 || emotions.sad > 40) improvements.push("Work on emotional balance");
+    } else if (mode === "decoder") {
+      keyInsights.push(`Actions decoded: ${decodedTexts.length}`);
+      if (decodedTexts.length > 5) strengths.push("Active and expressive body language");
+      if (decodedTexts.length < 3) improvements.push("Be more expressive with gestures");
+    }
+
+    const modeSpecificData: any = {};
+    if (mode === "education") modeSpecificData.educationMetrics = educationMetrics;
+    if (mode === "interview") modeSpecificData.interviewMetrics = interviewMetrics;
+    if (mode === "composure") modeSpecificData.composureScore = composureScore;
+    if (mode === "expressions") modeSpecificData.emotions = emotions;
+    if (mode === "decoder") modeSpecificData.decodedActions = decodedTexts;
+
+    return {
+      mode,
+      duration: sessionDuration,
+      averageMetrics: avgMetrics,
+      summary: {
+        overallScore,
+        rating,
+        strengths,
+        improvements,
+        keyInsights,
+      },
+      modeSpecificData,
+      peakMetrics: sessionPeakMetricsRef.current,
+      timeline: metricsTimelineRef.current,
+    };
+  };
+
+  const saveSession = async () => {
+    if (!sessionStartTime) {
+      toast({
+        title: "No Session",
+        description: "Start a session before saving",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const thumbnail = captureThumbnail();
+      const sessionResult = calculateSessionSummary();
+      const sessionName = `${mode.charAt(0).toUpperCase() + mode.slice(1)} Session - ${new Date().toLocaleDateString()}`;
+
+      await createLiveSession({
+        sessionName,
+        mode,
+        duration: sessionDuration,
+        thumbnailUrl: thumbnail || undefined,
+        result: sessionResult,
+      });
+
+      toast({
+        title: "Session Saved",
+        description: "Your analysis session has been saved to history",
+      });
+
+      metricsTimelineRef.current = [];
+      sessionPeakMetricsRef.current = {};
+    } catch (error) {
+      toast({
+        title: "Save Failed",
+        description: error instanceof Error ? error.message : "Failed to save session",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const startCamera = async () => {
     if (mode === "education" || mode === "interview") {
       if (!detectorReady) {
@@ -2244,6 +2376,11 @@ export default function LiveAnalysis() {
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
         setIsStreaming(true);
+        
+        // Initialize session tracking
+        setSessionStartTime(Date.now());
+        metricsTimelineRef.current = [];
+        sessionPeakMetricsRef.current = {};
 
         videoRef.current.onloadeddata = () => {
           // Start the detection loop for real-time analysis
@@ -2317,6 +2454,22 @@ export default function LiveAnalysis() {
       detectorRef.current = null;
     };
   }, [mode]);
+
+  // Session duration tracker
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout | null = null;
+
+    if (isStreaming && sessionStartTime) {
+      intervalId = setInterval(() => {
+        const duration = Math.floor((Date.now() - sessionStartTime) / 1000);
+        setSessionDuration(duration);
+      }, 1000);
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [isStreaming, sessionStartTime]);
 
   const getEmotionColor = (emotion: string, value: number) => {
     if (value === 0) return "bg-gray-800 dark:bg-gray-900";
@@ -2443,16 +2596,32 @@ export default function LiveAnalysis() {
               </div>
 
               {isStreaming && (
-                <div className="mt-4 flex justify-center">
-                  <Button
-                    variant="destructive"
-                    onClick={stopCamera}
-                    className="gap-2"
-                    data-testid="button-stop-camera"
-                  >
-                    <StopCircle className="w-5 h-5" />
-                    Stop Analysis
-                  </Button>
+                <div className="mt-4 space-y-3">
+                  <div className="flex items-center justify-center gap-2 text-sm font-medium">
+                    <Activity className="w-4 h-4 text-green-500" />
+                    <span>Session Duration: {Math.floor(sessionDuration / 60)}:{(sessionDuration % 60).toString().padStart(2, '0')}</span>
+                  </div>
+                  <div className="flex justify-center gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={saveSession}
+                      disabled={isSaving || sessionDuration < 5}
+                      className="gap-2"
+                      data-testid="button-save-session"
+                    >
+                      <Save className="w-5 h-5" />
+                      {isSaving ? "Saving..." : "Save Session"}
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={stopCamera}
+                      className="gap-2"
+                      data-testid="button-stop-camera"
+                    >
+                      <StopCircle className="w-5 h-5" />
+                      Stop Analysis
+                    </Button>
+                  </div>
                 </div>
               )}
             </Card>

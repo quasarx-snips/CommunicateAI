@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import multer from "multer";
 import { storage } from "./storage";
 import { analyzeBodyLanguage } from "./gemini";
-import { insertAnalysisSchema } from "@shared/schema";
+import { insertAnalysisSchema, insertLiveSessionSchema } from "@shared/schema";
 
 const upload = multer({ 
   storage: multer.memoryStorage(),
@@ -113,6 +113,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Clear device history error:", error);
       res.status(500).json({ error: "Failed to clear device history" });
+    }
+  });
+
+  // Live Session Routes
+  
+  // Create live session
+  app.post("/api/live-sessions", async (req, res) => {
+    try {
+      const sessionData = insertLiveSessionSchema.parse(req.body);
+      const session = await storage.createLiveSession(sessionData);
+      res.json(session);
+    } catch (error) {
+      console.error("Create live session error:", error);
+      if (error instanceof Error && error.name === "ZodError") {
+        return res.status(400).json({ error: "Invalid session data", details: error.message });
+      }
+      res.status(500).json({ error: "Failed to create live session" });
+    }
+  });
+
+  // Get live session by ID
+  app.get("/api/live-sessions/:id", async (req, res) => {
+    try {
+      const session = await storage.getLiveSession(req.params.id);
+      if (!session) {
+        return res.status(404).json({ error: "Live session not found" });
+      }
+      res.json(session);
+    } catch (error) {
+      console.error("Get live session error:", error);
+      res.status(500).json({ error: "Failed to get live session" });
+    }
+  });
+
+  // Update live session
+  app.patch("/api/live-sessions/:id", async (req, res) => {
+    try {
+      const updates = insertLiveSessionSchema.partial().parse(req.body);
+      const session = await storage.updateLiveSession(req.params.id, updates);
+      if (!session) {
+        return res.status(404).json({ error: "Live session not found" });
+      }
+      res.json(session);
+    } catch (error) {
+      console.error("Update live session error:", error);
+      if (error instanceof Error && error.name === "ZodError") {
+        return res.status(400).json({ error: "Invalid update data", details: error.message });
+      }
+      res.status(500).json({ error: "Failed to update live session" });
+    }
+  });
+
+  // Get live sessions by device
+  app.get("/api/live-sessions/device/:deviceId", async (req, res) => {
+    try {
+      const sessions = await storage.getLiveSessionsByDevice(req.params.deviceId);
+      res.json(sessions);
+    } catch (error) {
+      console.error("Get device live sessions error:", error);
+      res.status(500).json({ error: "Failed to get device live sessions" });
+    }
+  });
+
+  // Delete live session
+  app.delete("/api/live-sessions/:id", async (req, res) => {
+    try {
+      const deleted = await storage.deleteLiveSession(req.params.id);
+      if (!deleted) {
+        return res.status(404).json({ error: "Live session not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Delete live session error:", error);
+      res.status(500).json({ error: "Failed to delete live session" });
+    }
+  });
+
+  // Clear device live sessions
+  app.delete("/api/live-sessions/device/:deviceId", async (req, res) => {
+    try {
+      const deletedCount = await storage.clearDeviceLiveSessions(req.params.deviceId);
+      res.json({ deletedCount });
+    } catch (error) {
+      console.error("Clear device live sessions error:", error);
+      res.status(500).json({ error: "Failed to clear device live sessions" });
     }
   });
 
