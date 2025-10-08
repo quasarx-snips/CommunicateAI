@@ -749,7 +749,7 @@ export default function LiveAnalysis() {
   };
 
   // SECURITY MODE: Advanced Threat Detection & Behavioral Analysis
-  const analyzeSecurityBehavior = (keypoints: any[], expressions?: any): SecurityMetrics => {
+  const analyzeSecurityBehavior = (keypoints: any[], expressions?: any, faceLandmarks?: any): SecurityMetrics => {
     const getKeypoint = (name: string) => keypoints.find((kp) => kp.name === name);
     
     const leftWrist = getKeypoint("left_wrist");
@@ -910,6 +910,46 @@ export default function LiveAnalysis() {
       }
     }
     
+    // 9. ADVANCED FACE ANALYSIS - Micro-expressions and gaze
+    if (faceLandmarks) {
+      const headMovement = analyzeHeadMovement(faceLandmarks);
+      const gazeDirection = analyzeGazeDirection(faceLandmarks);
+      const eyeData = calculateEyeAspectRatio(faceLandmarks);
+      const microExp = analyzeMicroExpressions(expressions);
+      
+      // Head shaking (indicating "no" or disagreement)
+      if (headMovement.shaking) {
+        suspiciousScore += 12;
+        behaviorFlags.push("Head shaking - rejection behavior");
+      }
+      
+      // Gaze aversion (avoiding direct eye contact)
+      if (gazeDirection !== "center") {
+        suspiciousScore += 10;
+        behaviorFlags.push(`Looking ${gazeDirection} - evasive gaze`);
+      }
+      
+      // Excessive blinking (stress/lying indicator)
+      if (eyeData.blinking && eyeAspectRatioHistoryRef.current.filter(ear => ear < 0.2).length > 5) {
+        suspiciousScore += 8;
+        behaviorFlags.push("Excessive blinking - stress detected");
+      }
+      
+      // Fear micro-expression
+      if (microExp.fearScore > 40) {
+        suspiciousScore += 15;
+        behaviorFlags.push("Fear micro-expression - threat response");
+        anomalyDetected = true;
+      }
+      
+      // High stress indicators
+      if (microExp.stressScore > 60) {
+        suspiciousScore += 20;
+        behaviorFlags.push("High stress levels detected");
+        anomalyDetected = true;
+      }
+    }
+    
     // Calculate threat level
     let threatLevel: "SAFE" | "CAUTION" | "WARNING" | "CRITICAL" = "SAFE";
     if (suspiciousScore > 70) threatLevel = "CRITICAL";
@@ -932,7 +972,7 @@ export default function LiveAnalysis() {
   };
   
   // EDUCATION MODE: Attention & Engagement Tracking
-  const analyzeEducationBehavior = (keypoints: any[], expressions?: any): EducationMetrics => {
+  const analyzeEducationBehavior = (keypoints: any[], expressions?: any, faceLandmarks?: any): EducationMetrics => {
     const getKeypoint = (name: string) => keypoints.find((kp) => kp.name === name);
     
     const nose = getKeypoint("nose");
@@ -1067,6 +1107,40 @@ export default function LiveAnalysis() {
       }
     }
     
+    // 7. ADVANCED FACE ANALYSIS - Attention and engagement indicators
+    if (faceLandmarks) {
+      const headMovement = analyzeHeadMovement(faceLandmarks);
+      const gazeDirection = analyzeGazeDirection(faceLandmarks);
+      const eyeData = calculateEyeAspectRatio(faceLandmarks);
+      
+      // Nodding (understanding/agreement indicator)
+      if (headMovement.nodding) {
+        attentionScore = Math.min(100, attentionScore + 15);
+        participationIndicators.push("Nodding - showing understanding");
+      }
+      
+      // Direct gaze (focused attention)
+      if (gazeDirection === "center") {
+        attentionScore = Math.min(100, attentionScore + 10);
+        participationIndicators.push("Focused gaze - high attention");
+      } else {
+        attentionScore -= 12;
+        distractionFlags.push(`Looking ${gazeDirection} - distracted`);
+      }
+      
+      // Eye aspect ratio (drowsiness/fatigue detection)
+      if (eyeData.average < 0.25 && !eyeData.blinking) {
+        attentionScore -= 20;
+        distractionFlags.push("Drowsy eyes - low alertness");
+      }
+      
+      // Head tilt (confusion or disengagement)
+      if (Math.abs(headMovement.tilt) > 15) {
+        attentionScore -= 8;
+        distractionFlags.push("Head tilted - possible confusion");
+      }
+    }
+    
     // Calculate engagement level
     let engagementLevel: "LOW" | "MEDIUM" | "HIGH" | "VERY HIGH" = "MEDIUM";
     if (attentionScore >= 85) engagementLevel = "VERY HIGH";
@@ -1091,7 +1165,7 @@ export default function LiveAnalysis() {
   };
   
   // INTERVIEW MODE: Confidence, Professionalism & Communication Quality
-  const analyzeInterviewBehavior = (keypoints: any[], expressions?: any): InterviewMetrics => {
+  const analyzeInterviewBehavior = (keypoints: any[], expressions?: any, faceLandmarks?: any): InterviewMetrics => {
     const getKeypoint = (name: string) => keypoints.find((kp) => kp.name === name);
     
     const nose = getKeypoint("nose");
@@ -1236,7 +1310,57 @@ export default function LiveAnalysis() {
       }
     }
     
-    // 6. PROFESSIONALISM SCORING
+    // 6. ADVANCED FACE ANALYSIS - Confidence and communication indicators
+    if (faceLandmarks) {
+      const headMovement = analyzeHeadMovement(faceLandmarks);
+      const gazeDirection = analyzeGazeDirection(faceLandmarks);
+      const eyeData = calculateEyeAspectRatio(faceLandmarks);
+      const microExp = analyzeMicroExpressions(expressions);
+      
+      // Direct gaze (confidence indicator)
+      if (gazeDirection === "center") {
+        confidenceScore += 15;
+        communicationQuality += 15;
+        strengths.push("Strong eye contact - confident presence");
+      } else {
+        confidenceScore -= 12;
+        communicationQuality -= 12;
+        improvements.push("Maintain direct eye contact");
+      }
+      
+      // Nodding (active listening/agreement)
+      if (headMovement.nodding) {
+        communicationQuality += 10;
+        energyLevel += 8;
+        strengths.push("Nodding - active listening");
+      }
+      
+      // Head shaking (disagreement/uncertainty)
+      if (headMovement.shaking) {
+        confidenceScore -= 8;
+        stressIndicators.push("Head shaking - uncertainty detected");
+      }
+      
+      // Stress and authenticity micro-expressions
+      if (microExp.stressScore > 50) {
+        confidenceScore -= 15;
+        stressIndicators.push("High stress micro-expressions");
+      }
+      
+      if (microExp.authenticityScore < 50) {
+        authenticityScore = Math.min(authenticityScore, microExp.authenticityScore);
+        improvements.push("Show more natural expressions");
+      } else {
+        authenticityScore = Math.max(authenticityScore, microExp.authenticityScore);
+        strengths.push("Authentic emotional expressions");
+      }
+      
+      // Energy level based on facial cues and movement
+      const faceEnergyBoost = analyzeEnergyLevel(keypoints, expressions, headMovement);
+      energyLevel = Math.max(energyLevel, faceEnergyBoost);
+    }
+    
+    // 7. PROFESSIONALISM SCORING
     let professionalismLevel: "POOR" | "FAIR" | "GOOD" | "EXCELLENT" = "FAIR";
     const overallScore = (confidenceScore + communicationQuality + authenticityScore) / 3;
     
@@ -2246,36 +2370,42 @@ export default function LiveAnalysis() {
               flipHorizontal: false,
             });
 
-            // Also get facial expressions for comprehensive analysis
+            // Also get facial expressions and landmarks for comprehensive analysis
             let expressions = null;
-            if (faceApiLoadedRef.current) {
+            let faceLandmarks = null;
+            if (faceApiLoadedRef.current && faceDetectorReady) {
               const detections = await faceapi
                 .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({
                   inputSize: 512,
                   scoreThreshold: 0.5
                 }))
+                .withFaceLandmarks()
                 .withFaceExpressions();
               
               if (detections && detections.length > 0) {
                 expressions = detections[0].expressions;
+                faceLandmarks = detections[0].landmarks;
+                setFaceTracking(true);
+              } else {
+                setFaceTracking(false);
               }
             }
 
             if (poses && poses.length > 0) {
               if (mode === "security") {
-                const secMetrics = analyzeSecurityBehavior(poses[0].keypoints, expressions);
+                const secMetrics = analyzeSecurityBehavior(poses[0].keypoints, expressions, faceLandmarks);
                 setSecurityMetrics(secMetrics);
                 
                 // Visual feedback
                 drawSecurityOverlay(poses, overlayCanvas, secMetrics);
               } else if (mode === "education") {
-                const eduMetrics = analyzeEducationBehavior(poses[0].keypoints, expressions);
+                const eduMetrics = analyzeEducationBehavior(poses[0].keypoints, expressions, faceLandmarks);
                 setEducationMetrics(eduMetrics);
                 
                 // Visual feedback
                 drawEducationOverlay(poses, overlayCanvas, eduMetrics);
               } else if (mode === "interview") {
-                const intMetrics = analyzeInterviewBehavior(poses[0].keypoints, expressions);
+                const intMetrics = analyzeInterviewBehavior(poses[0].keypoints, expressions, faceLandmarks);
                 setInterviewMetrics(intMetrics);
                 
                 // Visual feedback
