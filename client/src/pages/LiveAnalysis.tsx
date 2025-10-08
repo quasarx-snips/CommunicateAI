@@ -1350,6 +1350,156 @@ export default function LiveAnalysis() {
 
     if (detections && detections.length > 0) {
       setFaceTracking(true);
+      
+      detections.forEach((detection: any) => {
+        const landmarks = detection.landmarks;
+        const box = detection.detection.box;
+        
+        // Draw face bounding box with glow effect
+        const smoothedBox = smoothFaceBox({
+          x: box.x,
+          y: box.y,
+          width: box.width,
+          height: box.height
+        });
+        
+        ctx.strokeStyle = "rgba(34, 197, 94, 0.8)";
+        ctx.lineWidth = 3;
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = "rgba(34, 197, 94, 0.6)";
+        ctx.strokeRect(smoothedBox.x, smoothedBox.y, smoothedBox.width, smoothedBox.height);
+        ctx.shadowBlur = 0;
+
+        // Draw 68 facial landmarks
+        const positions = landmarks.positions;
+        
+        // Draw landmark points
+        positions.forEach((point: any) => {
+          ctx.beginPath();
+          ctx.arc(point.x, point.y, 2, 0, 2 * Math.PI);
+          ctx.fillStyle = "rgba(34, 197, 94, 0.9)";
+          ctx.fill();
+        });
+
+        // Draw facial feature connections for mesh effect
+        // Jawline (0-16)
+        ctx.strokeStyle = "rgba(34, 197, 94, 0.5)";
+        ctx.lineWidth = 1.5;
+        for (let i = 0; i < 16; i++) {
+          ctx.beginPath();
+          ctx.moveTo(positions[i].x, positions[i].y);
+          ctx.lineTo(positions[i + 1].x, positions[i + 1].y);
+          ctx.stroke();
+        }
+
+        // Left eyebrow (17-21)
+        for (let i = 17; i < 21; i++) {
+          ctx.beginPath();
+          ctx.moveTo(positions[i].x, positions[i].y);
+          ctx.lineTo(positions[i + 1].x, positions[i + 1].y);
+          ctx.stroke();
+        }
+
+        // Right eyebrow (22-26)
+        for (let i = 22; i < 26; i++) {
+          ctx.beginPath();
+          ctx.moveTo(positions[i].x, positions[i].y);
+          ctx.lineTo(positions[i + 1].x, positions[i + 1].y);
+          ctx.stroke();
+        }
+
+        // Nose bridge (27-30)
+        for (let i = 27; i < 30; i++) {
+          ctx.beginPath();
+          ctx.moveTo(positions[i].x, positions[i].y);
+          ctx.lineTo(positions[i + 1].x, positions[i + 1].y);
+          ctx.stroke();
+        }
+
+        // Nose bottom (31-35)
+        for (let i = 31; i < 35; i++) {
+          ctx.beginPath();
+          ctx.moveTo(positions[i].x, positions[i].y);
+          ctx.lineTo(positions[i + 1].x, positions[i + 1].y);
+          ctx.stroke();
+        }
+
+        // Left eye (36-41)
+        for (let i = 36; i < 41; i++) {
+          ctx.beginPath();
+          ctx.moveTo(positions[i].x, positions[i].y);
+          ctx.lineTo(positions[i + 1].x, positions[i + 1].y);
+          ctx.stroke();
+        }
+        ctx.beginPath();
+        ctx.moveTo(positions[41].x, positions[41].y);
+        ctx.lineTo(positions[36].x, positions[36].y);
+        ctx.stroke();
+
+        // Right eye (42-47)
+        for (let i = 42; i < 47; i++) {
+          ctx.beginPath();
+          ctx.moveTo(positions[i].x, positions[i].y);
+          ctx.lineTo(positions[i + 1].x, positions[i + 1].y);
+          ctx.stroke();
+        }
+        ctx.beginPath();
+        ctx.moveTo(positions[47].x, positions[47].y);
+        ctx.lineTo(positions[42].x, positions[42].y);
+        ctx.stroke();
+
+        // Outer lip (48-59)
+        for (let i = 48; i < 59; i++) {
+          ctx.beginPath();
+          ctx.moveTo(positions[i].x, positions[i].y);
+          ctx.lineTo(positions[i + 1].x, positions[i + 1].y);
+          ctx.stroke();
+        }
+        ctx.beginPath();
+        ctx.moveTo(positions[59].x, positions[59].y);
+        ctx.lineTo(positions[48].x, positions[48].y);
+        ctx.stroke();
+
+        // Inner lip (60-67)
+        for (let i = 60; i < 67; i++) {
+          ctx.beginPath();
+          ctx.moveTo(positions[i].x, positions[i].y);
+          ctx.lineTo(positions[i + 1].x, positions[i + 1].y);
+          ctx.stroke();
+        }
+        ctx.beginPath();
+        ctx.moveTo(positions[67].x, positions[67].y);
+        ctx.lineTo(positions[60].x, positions[60].y);
+        ctx.stroke();
+
+        // Highlight eyes with brighter color
+        ctx.strokeStyle = "rgba(59, 130, 246, 0.7)";
+        ctx.lineWidth = 2;
+        
+        // Left eye highlight
+        ctx.beginPath();
+        for (let i = 36; i <= 41; i++) {
+          if (i === 36) {
+            ctx.moveTo(positions[i].x, positions[i].y);
+          } else {
+            ctx.lineTo(positions[i].x, positions[i].y);
+          }
+        }
+        ctx.closePath();
+        ctx.stroke();
+
+        // Right eye highlight
+        ctx.beginPath();
+        for (let i = 42; i <= 47; i++) {
+          if (i === 42) {
+            ctx.moveTo(positions[i].x, positions[i].y);
+          } else {
+            ctx.lineTo(positions[i].x, positions[i].y);
+          }
+        }
+        ctx.closePath();
+        ctx.stroke();
+      });
     } else {
       setFaceTracking(false);
     }
