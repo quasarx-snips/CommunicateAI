@@ -1653,10 +1653,6 @@ export default function LiveAnalysis() {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Apply coordinate scaling for proper overlay alignment
-    ctx.save();
-    ctx.scale(scaleX, scaleY);
-
     if (detections && detections.length > 0) {
       setFaceTracking(true);
       
@@ -1664,12 +1660,12 @@ export default function LiveAnalysis() {
         const landmarks = detection.landmarks;
         const box = detection.detection.box;
         
-        // Draw face bounding box with glow effect
+        // Draw face bounding box with glow effect - coordinates already in video space
         const smoothedBox = smoothFaceBox({
-          x: box.x,
-          y: box.y,
-          width: box.width,
-          height: box.height
+          x: box.x * scaleX,
+          y: box.y * scaleY,
+          width: box.width * scaleX,
+          height: box.height * scaleY
         });
         
         ctx.strokeStyle = "rgba(34, 197, 94, 0.8)";
@@ -1682,10 +1678,10 @@ export default function LiveAnalysis() {
         // Draw 68 facial landmarks
         const positions = landmarks.positions;
         
-        // Draw landmark points
+        // Draw landmark points with scaling
         positions.forEach((point: any) => {
           ctx.beginPath();
-          ctx.arc(point.x, point.y, 2, 0, 2 * Math.PI);
+          ctx.arc(point.x * scaleX, point.y * scaleY, 2, 0, 2 * Math.PI);
           ctx.fillStyle = "rgba(34, 197, 94, 0.9)";
           ctx.fill();
         });
@@ -1696,89 +1692,89 @@ export default function LiveAnalysis() {
         ctx.lineWidth = 1.5;
         for (let i = 0; i < 16; i++) {
           ctx.beginPath();
-          ctx.moveTo(positions[i].x, positions[i].y);
-          ctx.lineTo(positions[i + 1].x, positions[i + 1].y);
+          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
+          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
           ctx.stroke();
         }
 
         // Left eyebrow (17-21)
         for (let i = 17; i < 21; i++) {
           ctx.beginPath();
-          ctx.moveTo(positions[i].x, positions[i].y);
-          ctx.lineTo(positions[i + 1].x, positions[i + 1].y);
+          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
+          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
           ctx.stroke();
         }
 
         // Right eyebrow (22-26)
         for (let i = 22; i < 26; i++) {
           ctx.beginPath();
-          ctx.moveTo(positions[i].x, positions[i].y);
-          ctx.lineTo(positions[i + 1].x, positions[i + 1].y);
+          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
+          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
           ctx.stroke();
         }
 
         // Nose bridge (27-30)
         for (let i = 27; i < 30; i++) {
           ctx.beginPath();
-          ctx.moveTo(positions[i].x, positions[i].y);
-          ctx.lineTo(positions[i + 1].x, positions[i + 1].y);
+          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
+          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
           ctx.stroke();
         }
 
         // Nose bottom (31-35)
         for (let i = 31; i < 35; i++) {
           ctx.beginPath();
-          ctx.moveTo(positions[i].x, positions[i].y);
-          ctx.lineTo(positions[i + 1].x, positions[i + 1].y);
+          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
+          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
           ctx.stroke();
         }
 
         // Left eye (36-41)
         for (let i = 36; i < 41; i++) {
           ctx.beginPath();
-          ctx.moveTo(positions[i].x, positions[i].y);
-          ctx.lineTo(positions[i + 1].x, positions[i + 1].y);
+          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
+          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
           ctx.stroke();
         }
         ctx.beginPath();
-        ctx.moveTo(positions[41].x, positions[41].y);
-        ctx.lineTo(positions[36].x, positions[36].y);
+        ctx.moveTo(positions[41].x * scaleX, positions[41].y * scaleY);
+        ctx.lineTo(positions[36].x * scaleX, positions[36].y * scaleY);
         ctx.stroke();
 
         // Right eye (42-47)
         for (let i = 42; i < 47; i++) {
           ctx.beginPath();
-          ctx.moveTo(positions[i].x, positions[i].y);
-          ctx.lineTo(positions[i + 1].x, positions[i + 1].y);
+          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
+          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
           ctx.stroke();
         }
         ctx.beginPath();
-        ctx.moveTo(positions[47].x, positions[47].y);
-        ctx.lineTo(positions[42].x, positions[42].y);
+        ctx.moveTo(positions[47].x * scaleX, positions[47].y * scaleY);
+        ctx.lineTo(positions[42].x * scaleX, positions[42].y * scaleY);
         ctx.stroke();
 
         // Outer lip (48-59)
         for (let i = 48; i < 59; i++) {
           ctx.beginPath();
-          ctx.moveTo(positions[i].x, positions[i].y);
-          ctx.lineTo(positions[i + 1].x, positions[i + 1].y);
+          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
+          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
           ctx.stroke();
         }
         ctx.beginPath();
-        ctx.moveTo(positions[59].x, positions[59].y);
-        ctx.lineTo(positions[48].x, positions[48].y);
+        ctx.moveTo(positions[59].x * scaleX, positions[59].y * scaleY);
+        ctx.lineTo(positions[48].x * scaleX, positions[48].y * scaleY);
         ctx.stroke();
 
         // Inner lip (60-67)
         for (let i = 60; i < 67; i++) {
           ctx.beginPath();
-          ctx.moveTo(positions[i].x, positions[i].y);
-          ctx.lineTo(positions[i + 1].x, positions[i + 1].y);
+          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
+          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
           ctx.stroke();
         }
         ctx.beginPath();
-        ctx.moveTo(positions[67].x, positions[67].y);
-        ctx.lineTo(positions[60].x, positions[60].y);
+        ctx.moveTo(positions[67].x * scaleX, positions[67].y * scaleY);
+        ctx.lineTo(positions[60].x * scaleX, positions[60].y * scaleY);
         ctx.stroke();
 
         // Highlight eyes with brighter color
@@ -1789,9 +1785,9 @@ export default function LiveAnalysis() {
         ctx.beginPath();
         for (let i = 36; i <= 41; i++) {
           if (i === 36) {
-            ctx.moveTo(positions[i].x, positions[i].y);
+            ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
           } else {
-            ctx.lineTo(positions[i].x, positions[i].y);
+            ctx.lineTo(positions[i].x * scaleX, positions[i].y * scaleY);
           }
         }
         ctx.closePath();
@@ -1801,9 +1797,9 @@ export default function LiveAnalysis() {
         ctx.beginPath();
         for (let i = 42; i <= 47; i++) {
           if (i === 42) {
-            ctx.moveTo(positions[i].x, positions[i].y);
+            ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
           } else {
-            ctx.lineTo(positions[i].x, positions[i].y);
+            ctx.lineTo(positions[i].x * scaleX, positions[i].y * scaleY);
           }
         }
         ctx.closePath();
@@ -1812,8 +1808,6 @@ export default function LiveAnalysis() {
     } else {
       setFaceTracking(false);
     }
-    
-    ctx.restore();
   };
 
   // SECURITY MODE VISUALIZATION
