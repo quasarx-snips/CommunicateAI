@@ -2,7 +2,7 @@
 
 ## Overview
 
-ComposureSense is an AI-powered body language analysis application that provides real-time feedback on posture, facial expressions, and non-verbal communication patterns. The application supports multiple analysis modes including static image/video analysis, live webcam analysis, and facial expression detection. It uses Google's Gemini AI for comprehensive body language interpretation and TensorFlow.js models for real-time pose and facial landmark detection.
+ComposureSense is an AI-powered application designed to provide real-time feedback on body language, including posture, facial expressions, and non-verbal communication. It leverages Google's Gemini AI for comprehensive interpretation and TensorFlow.js for real-time, client-side pose and facial landmark detection. The project aims to offer diverse analysis modes for static media and live webcam feeds, catering to various use cases from general composure feedback to specialized modes for security, education, and interviews, ultimately enhancing self-awareness and communication skills.
 
 ## User Preferences
 
@@ -12,120 +12,66 @@ Preferred communication style: Simple, everyday language.
 
 ### Frontend Architecture
 
-**Framework**: React with TypeScript using Vite as the build tool
+The frontend is built with React and TypeScript, using Vite for fast development. It features Shadcn UI (New York style) based on Radix UI and Tailwind CSS for a robust, themeable component system with dark mode support. State management relies on TanStack React Query for server state and local React hooks for component state. Wouter handles client-side routing.
 
-**UI Component System**: Shadcn UI (New York style variant) built on Radix UI primitives with Tailwind CSS for styling. The design system includes a comprehensive set of reusable components with built-in dark mode support via a theme provider.
+Key pages include:
+- **Home**: For uploading static media (images, videos).
+- **Live Analysis**: Offers real-time webcam analysis with two core modes:
+    - **Composure Mode**: Focuses on posture, gesture recognition, and body alignment.
+    - **Expressions Mode**: Detects facial expressions, emotions, age, gender, and visualizes face meshes.
+- **Results**: Displays detailed analysis.
+- **History**: Stores device-specific analysis history locally.
 
-**State Management**: TanStack React Query for server state management and caching. No global state library is used; component state is managed locally with React hooks.
-
-**Routing**: Wouter for client-side routing, providing a lightweight alternative to React Router.
-
-**Key Pages**:
-- Home: Upload interface for images, videos, or audio files
-- Live Analysis: Real-time webcam analysis with **two distinct modes**:
-  - **Composure Mode**: Posture analysis with gesture recognition, body alignment metrics, and live feedback
-  - **Expressions Mode**: Facial expression recognition with emotion percentages (Neutral, Happy, Surprise, Angry, Disgust, Fear, Sad), age estimation, gender detection, and face mesh visualization with bounding box overlay
-- Results: Detailed analysis results display with metrics, insights, and recommendations
-- History: Device-specific analysis history stored locally
-
-**Real-time Processing**: TensorFlow.js integration with both WebGL and CPU backends for client-side ML inference. Supports:
-- Pose detection (MoveNet model) for body language analysis in Composure mode
-- Face landmarks detection (MediaPipe FaceMesh) for facial mesh visualization in Expressions mode
-- Live analysis without server round-trips for real-time visual feedback
+Client-side real-time processing is powered by TensorFlow.js (WebGL/CPU backends) for pose detection (MoveNet) and facial landmark detection (MediaPipe FaceMesh), ensuring immediate visual feedback without server round-trips.
 
 ### Backend Architecture
 
-**Runtime**: Node.js with Express.js server
-
-**Language**: TypeScript with ES modules
-
-**API Design**: RESTful endpoints for file uploads and analysis retrieval
-
-**Key Endpoints**:
-- `POST /api/analyze` - Full analysis of uploaded media files
-- `POST /api/analyze-live` - Lightweight live frame analysis
-- `GET /api/analysis/:id` - Retrieve specific analysis
-- `GET /api/analyses/device/:deviceId` - Get device history
-- `DELETE /api/analyses/device/:deviceId` - Clear device history
-
-**File Handling**: Multer middleware for multipart form data with 50MB file size limit and in-memory storage.
-
-**Development Setup**: Vite dev server integrated in middleware mode during development for HMR support.
+The backend utilizes Node.js with Express.js and TypeScript. It provides RESTful endpoints for media uploads and analysis retrieval. File handling uses Multer for multipart form data, with in-memory storage. The server is designed to be stateless, making it suitable for serverless deployment, and uses a hybrid processing model by offloading comprehensive AI interpretation to Google Gemini while managing client-side real-time processing.
 
 ### Data Storage Solutions
 
-**Primary Storage**: In-memory storage using Map data structures (MemStorage class). No persistent database is currently connected, though the schema is prepared for PostgreSQL with Drizzle ORM.
-
-**Database Schema** (Drizzle ORM with PostgreSQL target):
-- `users` table: Authentication support with username/password
-- `analyses` table: Stores analysis results with JSONB for flexible result structures
-
-**Client-side Storage**: LocalStorage for device identification (UUID) to track analysis history per device.
-
-**Session Management**: No authentication is currently implemented; device ID serves as the primary identifier for history tracking.
-
-### External Dependencies
-
-**AI/ML Services**:
-- **Google Gemini AI**: Core analysis engine for interpreting body language from uploaded files. Uses the `@google/genai` SDK with vision capabilities for analyzing uploaded images and videos.
-- **face-api.js**: Lightweight browser-based face detection and emotion recognition library (@vladmandic/face-api) using TensorFlow.js. Provides real-time local emotion detection without any API calls.
-- **TensorFlow.js**: Client-side ML inference with multiple backends (@tensorflow/tfjs-core, tfjs-backend-webgl, tfjs-backend-cpu)
-- **TensorFlow Models**: Pre-trained models for pose detection (@tensorflow-models/pose-detection)
-
-**Database** (Prepared but not actively used):
-- **Neon Database**: PostgreSQL serverless database using `@neondatabase/serverless` driver
-- **Drizzle ORM**: Type-safe ORM for database operations with schema-first approach
-
-**UI Framework Components**:
-- **Radix UI**: Comprehensive set of accessible, unstyled UI primitives
-- **Tailwind CSS**: Utility-first CSS framework with custom theme configuration
-- **Lucide React**: Icon library
-
-**Form Handling**:
-- **React Hook Form**: Form state management
-- **Zod**: Schema validation with `drizzle-zod` for type-safe form schemas
-
-**Build Tools**:
-- **Vite**: Frontend bundler and dev server
-- **esbuild**: Backend bundling for production
-- **TSX**: TypeScript execution for development
-
-**Development Tooling**:
-- **Replit Plugins**: Development banner, cartographer, and runtime error modal for Replit environment integration
+Currently, data is stored in-memory using `Map` objects. While a PostgreSQL schema using Drizzle ORM is defined for `users` and `analyses` tables, no persistent database is actively connected. Client-side analysis history is tracked per device using a UUID stored in `localStorage`, maintaining privacy without requiring user authentication.
 
 ### Key Architectural Decisions
 
-**Hybrid Processing Model**: The application uses both server-side AI analysis (Gemini) for comprehensive insights and client-side ML (TensorFlow.js) for real-time feedback. This approach balances accuracy with responsiveness—detailed analysis happens on the backend while live tracking runs entirely in the browser.
+- **Hybrid Processing Model**: Balances server-side AI for comprehensive insights (Gemini) with client-side ML for real-time feedback (TensorFlow.js).
+- **Stateless Backend**: Designed for scalability and serverless compatibility, with an interchangeable storage interface.
+- **Device-based History**: Offers a frictionless user experience by tracking history via `localStorage` without explicit authentication.
+- **Component-first Design**: Employs a consistent UI/UX with Shadcn UI, supporting both light and dark themes.
+- **Type Safety**: Achieved end-to-end using TypeScript and Zod for schema validation.
+- **Modular Analysis Modes**: Supports distinct live analysis modes optimized for different use cases:
+    - **Static Upload Mode**: Comprehensive body language analysis via Gemini AI.
+    - **Live Composure Mode**: Client-side posture and gesture analysis with advanced biomechanics.
+    - **Live Expressions Mode**: Client-side facial expression and emotion recognition with face mesh visualization.
+    - **Advanced Face Analysis System**: Integrated across modes for head movement, gaze, eye aspect ratio, micro-expression, and energy level tracking.
 
-**Stateless Backend**: The server is designed to be stateless with in-memory storage, making it suitable for serverless deployment. The MemStorage implementation can be easily swapped for a database-backed solution by implementing the IStorage interface.
+## External Dependencies
 
-**Device-based History**: Instead of user accounts, the application tracks analysis history per device using a UUID stored in localStorage. This provides a frictionless experience without requiring authentication while still maintaining user privacy.
+### AI/ML Services
 
-**Component-first Design**: The UI is built with a comprehensive design system using Shadcn UI patterns. All components support both light and dark themes and follow consistent spacing, border radius, and color conventions defined in the Tailwind configuration.
+- **Google Gemini AI**: For comprehensive body language interpretation of uploaded media.
+- **face-api.js**: Browser-based face detection and emotion recognition (local processing).
+- **TensorFlow.js**: Client-side ML inference with WebGL and CPU backends.
+- **TensorFlow Models**: Pre-trained models like MoveNet for pose detection.
 
-**Type Safety**: End-to-end type safety is maintained using TypeScript with shared schema definitions (Zod) between frontend and backend. Database schemas are generated from Drizzle ORM definitions.
+### Database (Prepared, not actively used)
 
-**Modular Analysis Modes**: The application supports multiple analysis modes with mode-specific optimizations:
-- **Static Upload Mode**: Comprehensive body language analysis of images, videos, or audio files using Gemini AI for detailed insights
-- **Live Composure Mode**: Real-time posture and gesture analysis using only TensorFlow.js (MoveNet model) with research-based biomechanics assessment. Features include:
-  - Premium skeletal overlay visualization with gradient-colored connecting lines and glow effects
-  - Rounded face-only bounding box with gradient background and adjective display (selected from 500+ adjectives based on composure score)
-  - Enhanced metrics based on academic research: Spinal Alignment, Shoulder Position & Openness, Head Stability & Orientation, Body Uprightness, and Detection Quality
-  - Overall composure score (0-100%) with gradient text animation displayed prominently
-  - Stability indicator showing "Locked" status when readings are stable (hysteresis-based)
-  - Exponential moving average smoothing (5-frame history, 30% new / 70% historical weighting)
-  - Weighted score averaging (8-frame history with recency bias) for ultra-stable readings
-  - Adjective hysteresis (10-point threshold) to prevent rapid word switching
-  - Smart frame skipping: processes every 2nd frame when stable for 50% performance boost
-  - Normalized biomechanics: all measurements relative to body proportions for accuracy across distances
-  - Higher confidence thresholds (0.5+ for body, 0.6+ for face) to filter noise
-  - Real-time gesture recognition (waving, crossed arms, hands on hips, thinking pose, etc.)
-  - No server-side AI calls - all processing happens client-side for instant feedback
-- **Live Expressions Mode**: Real-time facial expression recognition with emotion percentages and face mesh visualization. Uses face-api.js (TinyFaceDetector) for complete client-side processing - face detection, 68-point facial landmarks, and 7-emotion recognition (neutral, happy, surprise, angry, disgust, fear, sad). Features include:
-  - Green bounding box overlay around detected faces
-  - Face mesh visualization with landmark points and contour lines
-  - Real-time emotion percentages updated continuously
-  - Optimized for mobile devices (640x480 video resolution, WebGL with CPU fallback)
-  - 100% local processing - no API calls or server dependencies
-  - Status indicators for webcam source, player state, and face tracking
-- Each mode features robust error handling that clears stale data and provides user feedback through toast notifications when analysis fails
+- **Neon Database**: Serverless PostgreSQL.
+- **Drizzle ORM**: Type-safe ORM for schema definition.
+
+### UI Framework Components
+
+- **Radix UI**: Accessible, unstyled UI primitives.
+- **Tailwind CSS**: Utility-first CSS framework.
+- **Lucide React**: Icon library.
+
+### Form Handling
+
+- **React Hook Form**: For form state management.
+- **Zod**: Schema validation.
+
+### Build Tools
+
+- **Vite**: Frontend bundler and dev server.
+- **esbuild**: Backend bundling.
+- **TSX**: TypeScript execution for development.
