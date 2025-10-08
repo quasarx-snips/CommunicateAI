@@ -64,6 +64,7 @@ export default function LiveAnalysis() {
   const scoreHistoryRef = useRef<number[]>([]);
   const adjectiveStableRef = useRef<{ adjective: string; score: number }>({ adjective: "Neutral", score: 0 });
   const frameSkipCounterRef = useRef(0);
+  const faceBoxHistoryRef = useRef<Array<{ x: number; y: number; width: number; height: number }>>([]);
   
   const { toast } = useToast();
 
@@ -142,6 +143,35 @@ export default function LiveAnalysis() {
     }
     
     return { adjective: adjectiveStableRef.current.adjective, isStable: true };
+  };
+
+  // Smooth face box calculation with exponential moving average
+  const smoothFaceBox = (newBox: { x: number; y: number; width: number; height: number }) => {
+    const BOX_HISTORY_SIZE = 4;
+    const SMOOTHING_WEIGHT = 0.4; // Higher weight = more responsive, lower = smoother
+    
+    faceBoxHistoryRef.current.push(newBox);
+    if (faceBoxHistoryRef.current.length > BOX_HISTORY_SIZE) {
+      faceBoxHistoryRef.current.shift();
+    }
+
+    if (faceBoxHistoryRef.current.length === 1) {
+      return newBox;
+    }
+
+    // Calculate weighted average for each dimension
+    let smoothedBox = { ...newBox };
+    const history = faceBoxHistoryRef.current;
+    
+    ['x', 'y', 'width', 'height'].forEach((key) => {
+      let value = history[history.length - 1][key as keyof typeof newBox];
+      for (let i = history.length - 2; i >= 0; i--) {
+        value = history[i][key as keyof typeof newBox] * (1 - SMOOTHING_WEIGHT) + value * SMOOTHING_WEIGHT;
+      }
+      smoothedBox[key as keyof typeof smoothedBox] = value;
+    });
+
+    return smoothedBox;
   };
 
   const initializePoseDetector = async () => {
@@ -706,41 +736,68 @@ export default function LiveAnalysis() {
         }
       });
 
-      // Calculate face bounding box
+      // Calculate face bounding box with improved accuracy
       const faceLandmarks = ["nose", "left_eye", "right_eye", "left_ear", "right_ear"];
       const facePoints = faceLandmarks
         .map(name => getKeypoint(name))
         .filter(kp => kp && kp.score > 0.5);
 
       if (facePoints.length >= 3) {
+        // Calculate raw bounding box
         const faceXs = facePoints.map((kp: any) => kp.x);
         const faceYs = facePoints.map((kp: any) => kp.y);
-        const faceMinX = Math.min(...faceXs);
-        const faceMaxX = Math.max(...faceXs);
-        const faceMinY = Math.min(...faceYs);
-        const faceMaxY = Math.max(...faceYs);
+        const rawMinX = Math.min(...faceXs);
+        const rawMaxX = Math.max(...faceXs);
+        const rawMinY = Math.min(...faceYs);
+        const rawMaxY = Math.max(...faceYs);
 
-        const padding = 25;
-        const boxX = faceMinX - padding;
-        const boxY = faceMinY - padding;
-        const boxWidth = (faceMaxX - faceMinX) + (padding * 2);
-        const boxHeight = (faceMaxY - faceMinY) + (padding * 2);
-        const cornerRadius = 12;
+        // Calculate center and dimensions
+        const centerX = (rawMinX + rawMaxX) / 2;
+        const centerY = (rawMinY + rawMaxY) / 2;
+        const rawWidth = rawMaxX - rawMinX;
+        const rawHeight = rawMaxY - rawMinY;
 
-        // Draw premium face box with rounded corners and glow
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = "rgba(59, 130, 246, 0.6)";
+        // Expand box to ensure full face coverage
+        // Use aspect ratio to maintain proper proportions
+        const targetAspectRatio = 0.85; // Slightly wider than tall for natural face shape
+        let boxWidth = rawWidth * 2.2; // Expand to capture full face
+        let boxHeight = rawHeight * 2.4;
+
+        // Adjust dimensions to maintain aspect ratio
+        if (boxWidth / boxHeight < targetAspectRatio) {
+          boxWidth = boxHeight * targetAspectRatio;
+        } else {
+          boxHeight = boxWidth / targetAspectRatio;
+        }
+
+        // Create smooth box with center-based positioning
+        const rawBox = {
+          x: centerX - boxWidth / 2,
+          y: centerY - boxHeight / 2,
+          width: boxWidth,
+          height: boxHeight
+        };
+
+        // Apply smoothing
+        const smoothedBox = smoothFaceBox(rawBox);
+        const { x: boxX, y: boxY, width: finalWidth, height: finalHeight } = smoothedBox;
         
-        ctx.strokeStyle = "rgba(59, 130, 246, 0.95)";
-        ctx.lineWidth = 4;
+        const cornerRadius = 10;
+
+        // Draw lightweight face box with subtle styling
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = "rgba(59, 130, 246, 0.4)";
+        
+        ctx.strokeStyle = "rgba(59, 130, 246, 0.9)";
+        ctx.lineWidth = 2.5;
         ctx.beginPath();
         ctx.moveTo(boxX + cornerRadius, boxY);
-        ctx.lineTo(boxX + boxWidth - cornerRadius, boxY);
-        ctx.arcTo(boxX + boxWidth, boxY, boxX + boxWidth, boxY + cornerRadius, cornerRadius);
-        ctx.lineTo(boxX + boxWidth, boxY + boxHeight - cornerRadius);
-        ctx.arcTo(boxX + boxWidth, boxY + boxHeight, boxX + boxWidth - cornerRadius, boxY + boxHeight, cornerRadius);
-        ctx.lineTo(boxX + cornerRadius, boxY + boxHeight);
-        ctx.arcTo(boxX, boxY + boxHeight, boxX, boxY + boxHeight - cornerRadius, cornerRadius);
+        ctx.lineTo(boxX + finalWidth - cornerRadius, boxY);
+        ctx.arcTo(boxX + finalWidth, boxY, boxX + finalWidth, boxY + cornerRadius, cornerRadius);
+        ctx.lineTo(boxX + finalWidth, boxY + finalHeight - cornerRadius);
+        ctx.arcTo(boxX + finalWidth, boxY + finalHeight, boxX + finalWidth - cornerRadius, boxY + finalHeight, cornerRadius);
+        ctx.lineTo(boxX + cornerRadius, boxY + finalHeight);
+        ctx.arcTo(boxX, boxY + finalHeight, boxX, boxY + finalHeight - cornerRadius, cornerRadius);
         ctx.lineTo(boxX, boxY + cornerRadius);
         ctx.arcTo(boxX, boxY, boxX + cornerRadius, boxY, cornerRadius);
         ctx.closePath();
@@ -748,46 +805,46 @@ export default function LiveAnalysis() {
         
         ctx.shadowBlur = 0;
 
-        // Draw premium adjective label with gradient background
-        ctx.font = "bold 20px Inter, system-ui, sans-serif";
+        // Draw lightweight adjective label
+        ctx.font = "600 18px Inter, system-ui, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "bottom";
         
         const textMetrics = ctx.measureText(adjective);
-        const textWidth = textMetrics.width + 30;
-        const textHeight = 36;
-        const textX = boxX + boxWidth / 2;
-        const textY = boxY - 12;
+        const textWidth = textMetrics.width + 24;
+        const textHeight = 32;
+        const textX = boxX + finalWidth / 2;
+        const textY = boxY - 10;
 
-        // Gradient background
+        // Subtle gradient background
         const bgGradient = ctx.createLinearGradient(textX - textWidth/2, textY - textHeight, textX + textWidth/2, textY);
-        bgGradient.addColorStop(0, "rgba(0, 0, 0, 0.85)");
-        bgGradient.addColorStop(0.5, "rgba(20, 20, 30, 0.9)");
-        bgGradient.addColorStop(1, "rgba(0, 0, 0, 0.85)");
+        bgGradient.addColorStop(0, "rgba(0, 0, 0, 0.8)");
+        bgGradient.addColorStop(0.5, "rgba(15, 15, 25, 0.85)");
+        bgGradient.addColorStop(1, "rgba(0, 0, 0, 0.8)");
         
         ctx.fillStyle = bgGradient;
-        ctx.shadowBlur = 8;
-        ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+        ctx.shadowBlur = 6;
+        ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
         ctx.beginPath();
-        ctx.moveTo(textX - textWidth/2 + 8, textY - textHeight);
-        ctx.lineTo(textX + textWidth/2 - 8, textY - textHeight);
-        ctx.arcTo(textX + textWidth/2, textY - textHeight, textX + textWidth/2, textY - textHeight + 8, 8);
-        ctx.lineTo(textX + textWidth/2, textY - 8);
-        ctx.arcTo(textX + textWidth/2, textY, textX + textWidth/2 - 8, textY, 8);
-        ctx.lineTo(textX - textWidth/2 + 8, textY);
-        ctx.arcTo(textX - textWidth/2, textY, textX - textWidth/2, textY - 8, 8);
-        ctx.lineTo(textX - textWidth/2, textY - textHeight + 8);
-        ctx.arcTo(textX - textWidth/2, textY - textHeight, textX - textWidth/2 + 8, textY - textHeight, 8);
+        ctx.moveTo(textX - textWidth/2 + 6, textY - textHeight);
+        ctx.lineTo(textX + textWidth/2 - 6, textY - textHeight);
+        ctx.arcTo(textX + textWidth/2, textY - textHeight, textX + textWidth/2, textY - textHeight + 6, 6);
+        ctx.lineTo(textX + textWidth/2, textY - 6);
+        ctx.arcTo(textX + textWidth/2, textY, textX + textWidth/2 - 6, textY, 6);
+        ctx.lineTo(textX - textWidth/2 + 6, textY);
+        ctx.arcTo(textX - textWidth/2, textY, textX - textWidth/2, textY - 6, 6);
+        ctx.lineTo(textX - textWidth/2, textY - textHeight + 6);
+        ctx.arcTo(textX - textWidth/2, textY - textHeight, textX - textWidth/2 + 6, textY - textHeight, 6);
         ctx.closePath();
         ctx.fill();
         
         ctx.shadowBlur = 0;
 
         // Draw text with subtle glow
-        ctx.shadowBlur = 4;
-        ctx.shadowColor = "rgba(59, 130, 246, 0.8)";
+        ctx.shadowBlur = 3;
+        ctx.shadowColor = "rgba(59, 130, 246, 0.6)";
         ctx.fillStyle = "rgba(255, 255, 255, 0.98)";
-        ctx.fillText(adjective, textX, textY - 8);
+        ctx.fillText(adjective, textX, textY - 7);
         ctx.shadowBlur = 0;
       }
     });
@@ -974,6 +1031,7 @@ export default function LiveAnalysis() {
     metricsHistoryRef.current = [];
     scoreHistoryRef.current = [];
     adjectiveStableRef.current = { adjective: "Neutral", score: 0 };
+    faceBoxHistoryRef.current = [];
     
     setIsStreaming(false);
     setFeedback([]);
