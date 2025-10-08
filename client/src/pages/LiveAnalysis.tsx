@@ -1286,7 +1286,7 @@ export default function LiveAnalysis() {
                 Expressions
               </TabsTrigger>
               <TabsTrigger value="decoder" data-testid="tab-decoder">
-                Body Language Decoder
+                BLA
               </TabsTrigger>
             </TabsList>
           </Tabs>
