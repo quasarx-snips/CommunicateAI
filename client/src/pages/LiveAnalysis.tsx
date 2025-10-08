@@ -111,6 +111,8 @@ export default function LiveAnalysis() {
     sad: 0
   });
   const [faceTracking, setFaceTracking] = useState<boolean>(false);
+  const [decodedTexts, setDecodedTexts] = useState<string[]>([]);
+  const [currentDecoding, setCurrentDecoding] = useState<string>("");
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
