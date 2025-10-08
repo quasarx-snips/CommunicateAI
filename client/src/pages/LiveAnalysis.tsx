@@ -610,49 +610,133 @@ export default function LiveAnalysis() {
 
       setFaceTracking(true);
 
-      // Draw bounding box with green color
+      // Draw bounding box with animated glow effect
       const { x, y, width, height } = box.box;
       
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = "rgba(0, 255, 0, 0.6)";
       ctx.strokeStyle = "rgba(0, 255, 0, 0.9)";
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 2.5;
       ctx.strokeRect(x, y, width, height);
+      ctx.shadowBlur = 0;
 
-      // Draw face mesh with enhanced visualization
+      // Draw comprehensive face mesh structure
       if (landmarks) {
         const positions = landmarks.positions;
 
-        // Draw mesh lines with gradient effect
-        ctx.strokeStyle = "rgba(0, 255, 0, 0.5)";
-        ctx.lineWidth = 1;
+        // Define facial feature connection patterns (68-point landmark model)
+        const connections = {
+          // Jawline (0-16)
+          jawline: Array.from({ length: 16 }, (_, i) => [i, i + 1]),
+          
+          // Left eyebrow (17-21)
+          leftEyebrow: Array.from({ length: 4 }, (_, i) => [17 + i, 18 + i]),
+          
+          // Right eyebrow (22-26)
+          rightEyebrow: Array.from({ length: 4 }, (_, i) => [22 + i, 23 + i]),
+          
+          // Nose bridge (27-30)
+          noseBridge: Array.from({ length: 3 }, (_, i) => [27 + i, 28 + i]),
+          
+          // Nose base (31-35)
+          noseBase: [[31, 32], [32, 33], [33, 34], [34, 35], [35, 31]],
+          
+          // Left eye (36-41)
+          leftEye: [[36, 37], [37, 38], [38, 39], [39, 40], [40, 41], [41, 36]],
+          
+          // Right eye (42-47)
+          rightEye: [[42, 43], [43, 44], [44, 45], [45, 46], [46, 47], [47, 42]],
+          
+          // Outer lips (48-59)
+          outerLips: [[48, 49], [49, 50], [50, 51], [51, 52], [52, 53], [53, 54], [54, 55], [55, 56], [56, 57], [57, 58], [58, 59], [59, 48]],
+          
+          // Inner lips (60-67)
+          innerLips: [[60, 61], [61, 62], [62, 63], [63, 64], [64, 65], [65, 66], [66, 67], [67, 60]]
+        };
 
-        // Draw face contour connections
-        const drawConnections = (indices: number[][]) => {
+        // Draw mesh connections with different colors for different features
+        const drawFeatureConnections = (indices: number[][], color: string, lineWidth: number = 1.2) => {
           indices.forEach(([start, end]) => {
             if (start < positions.length && end < positions.length) {
               const startPoint = positions[start];
               const endPoint = positions[end];
               
+              // Gradient line for depth effect
+              const gradient = ctx.createLinearGradient(
+                startPoint.x, startPoint.y, 
+                endPoint.x, endPoint.y
+              );
+              gradient.addColorStop(0, color);
+              gradient.addColorStop(0.5, color.replace('0.7', '0.9'));
+              gradient.addColorStop(1, color);
+              
               ctx.beginPath();
               ctx.moveTo(startPoint.x, startPoint.y);
               ctx.lineTo(endPoint.x, endPoint.y);
+              ctx.strokeStyle = gradient;
+              ctx.lineWidth = lineWidth;
               ctx.stroke();
             }
           });
         };
 
-        // Face outline connections (simplified for better mobile performance)
-        const faceContour = Array.from({ length: 17 }, (_, i) => [i, i + 1]);
-        drawConnections(faceContour);
+        // Draw all facial features with color coding
+        drawFeatureConnections(connections.jawline, "rgba(0, 255, 150, 0.7)", 1.5); // Cyan-green for jawline
+        drawFeatureConnections(connections.leftEyebrow, "rgba(100, 200, 255, 0.7)", 1.3); // Light blue for eyebrows
+        drawFeatureConnections(connections.rightEyebrow, "rgba(100, 200, 255, 0.7)", 1.3);
+        drawFeatureConnections(connections.noseBridge, "rgba(255, 200, 100, 0.7)", 1.2); // Gold for nose
+        drawFeatureConnections(connections.noseBase, "rgba(255, 200, 100, 0.7)", 1.2);
+        drawFeatureConnections(connections.leftEye, "rgba(255, 100, 200, 0.7)", 1.4); // Pink for eyes
+        drawFeatureConnections(connections.rightEye, "rgba(255, 100, 200, 0.7)", 1.4);
+        drawFeatureConnections(connections.outerLips, "rgba(255, 50, 100, 0.7)", 1.5); // Red for lips
+        drawFeatureConnections(connections.innerLips, "rgba(255, 50, 100, 0.7)", 1.3);
 
-        // Draw keypoint markers
+        // Draw landmark points with glow effect
         positions.forEach((position: any, idx: number) => {
-          if (idx % 2 === 0) { // Draw every other point for better performance
-            ctx.beginPath();
-            ctx.arc(position.x, position.y, 2, 0, 2 * Math.PI);
-            ctx.fillStyle = "rgba(0, 255, 0, 0.8)";
-            ctx.fill();
+          // Determine point color based on feature
+          let pointColor = "rgba(0, 255, 0, 0.9)"; // Default green
+          
+          if (idx >= 36 && idx <= 47) { // Eyes
+            pointColor = "rgba(255, 100, 200, 1)"; // Pink
+          } else if (idx >= 48 && idx <= 67) { // Lips
+            pointColor = "rgba(255, 50, 100, 1)"; // Red
+          } else if (idx >= 27 && idx <= 35) { // Nose
+            pointColor = "rgba(255, 200, 100, 1)"; // Gold
+          } else if (idx >= 17 && idx <= 26) { // Eyebrows
+            pointColor = "rgba(100, 200, 255, 1)"; // Light blue
           }
+
+          // Outer glow
+          ctx.shadowBlur = 6;
+          ctx.shadowColor = pointColor;
+          ctx.beginPath();
+          ctx.arc(position.x, position.y, 2.5, 0, 2 * Math.PI);
+          ctx.fillStyle = pointColor;
+          ctx.fill();
+          
+          // Inner bright core
+          ctx.shadowBlur = 0;
+          ctx.beginPath();
+          ctx.arc(position.x, position.y, 1.5, 0, 2 * Math.PI);
+          ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+          ctx.fill();
         });
+
+        // Add connecting lines between key facial regions for full mesh effect
+        const crossConnections = [
+          // Eyes to nose bridge
+          [36, 27], [45, 27], // Left eye to nose, Right eye to nose
+          // Eyebrows to eyes
+          [19, 37], [24, 44],
+          // Nose to mouth
+          [33, 51], [33, 57],
+          // Jawline to mouth corners
+          [3, 48], [13, 54]
+        ];
+
+        drawFeatureConnections(crossConnections, "rgba(0, 255, 150, 0.4)", 0.8);
+
+        ctx.shadowBlur = 0; // Reset shadow
       }
     });
   };
