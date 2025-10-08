@@ -1417,141 +1417,58 @@ export default function LiveAnalysis() {
 
       detections.forEach((detection: any) => {
         const landmarks = detection.landmarks;
-        const box = detection.detection.box;
-
-        // Draw face bounding box with glow effect
-        const smoothedBox = smoothFaceBox({
-          x: box.x * scaleX,
-          y: box.y * scaleY,
-          width: box.width * scaleX,
-          height: box.height * scaleY
-        });
-
-        ctx.strokeStyle = "rgba(34, 197, 94, 0.8)";
-        ctx.lineWidth = 3;
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = "rgba(34, 197, 94, 0.6)";
-        ctx.strokeRect(smoothedBox.x, smoothedBox.y, smoothedBox.width, smoothedBox.height);
-        ctx.shadowBlur = 0;
-
-        // Draw 68 facial landmarks
         const positions = landmarks.positions;
 
-        // Draw landmark points with proper scaling and larger dots
-        positions.forEach((point: any) => {
-          const x = point.x * scaleX;
-          const y = point.y * scaleY;
-          
-          // Outer glow
-          ctx.beginPath();
-          ctx.arc(x, y, 4, 0, 2 * Math.PI);
-          ctx.fillStyle = "rgba(34, 197, 94, 0.3)";
-          ctx.fill();
-          
-          // Main dot
-          ctx.beginPath();
-          ctx.arc(x, y, 2.5, 0, 2 * Math.PI);
-          ctx.fillStyle = "rgba(34, 197, 94, 1)";
-          ctx.fill();
-        });
+        // Ultra-lightweight mesh lines with subtle transparency
+        ctx.strokeStyle = "rgba(34, 197, 94, 0.35)";
+        ctx.lineWidth = 0.8;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
 
-        // Draw facial feature connections for mesh effect
-        ctx.strokeStyle = "rgba(34, 197, 94, 0.6)";
-        ctx.lineWidth = 1.5;
-
-        // Jawline (0-16)
-        for (let i = 0; i < 16; i++) {
-          ctx.beginPath();
-          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
-          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
-          ctx.stroke();
+        // Jawline (0-16) - smooth contour
+        ctx.beginPath();
+        ctx.moveTo(positions[0].x * scaleX, positions[0].y * scaleY);
+        for (let i = 1; i <= 16; i++) {
+          ctx.lineTo(positions[i].x * scaleX, positions[i].y * scaleY);
         }
+        ctx.stroke();
 
         // Left eyebrow (17-21)
-        for (let i = 17; i < 21; i++) {
-          ctx.beginPath();
-          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
-          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
-          ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(positions[17].x * scaleX, positions[17].y * scaleY);
+        for (let i = 18; i <= 21; i++) {
+          ctx.lineTo(positions[i].x * scaleX, positions[i].y * scaleY);
         }
+        ctx.stroke();
 
         // Right eyebrow (22-26)
-        for (let i = 22; i < 26; i++) {
-          ctx.beginPath();
-          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
-          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
-          ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(positions[22].x * scaleX, positions[22].y * scaleY);
+        for (let i = 23; i <= 26; i++) {
+          ctx.lineTo(positions[i].x * scaleX, positions[i].y * scaleY);
         }
+        ctx.stroke();
 
         // Nose bridge (27-30)
-        for (let i = 27; i < 30; i++) {
-          ctx.beginPath();
-          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
-          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
-          ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(positions[27].x * scaleX, positions[27].y * scaleY);
+        for (let i = 28; i <= 30; i++) {
+          ctx.lineTo(positions[i].x * scaleX, positions[i].y * scaleY);
         }
+        ctx.stroke();
 
         // Nose bottom (31-35)
-        for (let i = 31; i < 35; i++) {
-          ctx.beginPath();
-          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
-          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
-          ctx.stroke();
-        }
-
-        // Left eye (36-41)
-        for (let i = 36; i < 41; i++) {
-          ctx.beginPath();
-          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
-          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
-          ctx.stroke();
-        }
         ctx.beginPath();
-        ctx.moveTo(positions[41].x * scaleX, positions[41].y * scaleY);
-        ctx.lineTo(positions[36].x * scaleX, positions[36].y * scaleY);
+        ctx.moveTo(positions[31].x * scaleX, positions[31].y * scaleY);
+        for (let i = 32; i <= 35; i++) {
+          ctx.lineTo(positions[i].x * scaleX, positions[i].y * scaleY);
+        }
+        ctx.lineTo(positions[31].x * scaleX, positions[31].y * scaleY);
         ctx.stroke();
 
-        // Right eye (42-47)
-        for (let i = 42; i < 47; i++) {
-          ctx.beginPath();
-          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
-          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
-          ctx.stroke();
-        }
-        ctx.beginPath();
-        ctx.moveTo(positions[47].x * scaleX, positions[47].y * scaleY);
-        ctx.lineTo(positions[42].x * scaleX, positions[42].y * scaleY);
-        ctx.stroke();
-
-        // Outer lip (48-59)
-        for (let i = 48; i < 59; i++) {
-          ctx.beginPath();
-          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
-          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
-          ctx.stroke();
-        }
-        ctx.beginPath();
-        ctx.moveTo(positions[59].x * scaleX, positions[59].y * scaleY);
-        ctx.lineTo(positions[48].x * scaleX, positions[48].y * scaleY);
-        ctx.stroke();
-
-        // Inner lip (60-67)
-        for (let i = 60; i < 67; i++) {
-          ctx.beginPath();
-          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
-          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
-          ctx.stroke();
-        }
-        ctx.beginPath();
-        ctx.moveTo(positions[67].x * scaleX, positions[67].y * scaleY);
-        ctx.lineTo(positions[60].x * scaleX, positions[60].y * scaleY);
-        ctx.stroke();
-
-        // Highlight eyes with brighter color
-        ctx.strokeStyle = "rgba(59, 130, 246, 0.8)";
-        ctx.lineWidth = 2;
-
-        // Left eye highlight
+        // Left eye (36-41) with subtle glow
+        ctx.strokeStyle = "rgba(34, 197, 94, 0.5)";
+        ctx.lineWidth = 0.9;
         ctx.beginPath();
         for (let i = 36; i <= 41; i++) {
           if (i === 36) {
@@ -1563,7 +1480,7 @@ export default function LiveAnalysis() {
         ctx.closePath();
         ctx.stroke();
 
-        // Right eye highlight
+        // Right eye (42-47) with subtle glow
         ctx.beginPath();
         for (let i = 42; i <= 47; i++) {
           if (i === 42) {
@@ -1574,6 +1491,58 @@ export default function LiveAnalysis() {
         }
         ctx.closePath();
         ctx.stroke();
+
+        // Outer lip (48-59)
+        ctx.strokeStyle = "rgba(34, 197, 94, 0.4)";
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        for (let i = 48; i <= 59; i++) {
+          if (i === 48) {
+            ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
+          } else {
+            ctx.lineTo(positions[i].x * scaleX, positions[i].y * scaleY);
+          }
+        }
+        ctx.closePath();
+        ctx.stroke();
+
+        // Inner lip (60-67)
+        ctx.beginPath();
+        for (let i = 60; i <= 67; i++) {
+          if (i === 60) {
+            ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
+          } else {
+            ctx.lineTo(positions[i].x * scaleX, positions[i].y * scaleY);
+          }
+        }
+        ctx.closePath();
+        ctx.stroke();
+
+        // Ultra-minimal landmark dots (smaller and more transparent)
+        positions.forEach((point: any) => {
+          const x = point.x * scaleX;
+          const y = point.y * scaleY;
+          
+          ctx.beginPath();
+          ctx.arc(x, y, 1.2, 0, 2 * Math.PI);
+          ctx.fillStyle = "rgba(34, 197, 94, 0.6)";
+          ctx.fill();
+        });
+
+        // Optional: subtle face box (very light)
+        const box = detection.detection.box;
+        const smoothedBox = smoothFaceBox({
+          x: box.x * scaleX,
+          y: box.y * scaleY,
+          width: box.width * scaleX,
+          height: box.height * scaleY
+        });
+
+        ctx.strokeStyle = "rgba(34, 197, 94, 0.25)";
+        ctx.lineWidth = 1;
+        ctx.setLineDash([5, 5]);
+        ctx.strokeRect(smoothedBox.x, smoothedBox.y, smoothedBox.width, smoothedBox.height);
+        ctx.setLineDash([]);
       });
     } else {
       setFaceTracking(false);
