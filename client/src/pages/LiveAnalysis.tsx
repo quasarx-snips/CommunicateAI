@@ -2361,6 +2361,177 @@ export default function LiveAnalysis() {
     }
   };
 
+  // Export session as JSON
+  const exportSessionJSON = () => {
+    if (!sessionStartTime) {
+      toast({
+        title: "No Session Data",
+        description: "Start and run a session before exporting",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const sessionResult = calculateSessionSummary();
+      const exportData = {
+        sessionName: `${mode.charAt(0).toUpperCase() + mode.slice(1)} Session`,
+        exportDate: new Date().toISOString(),
+        ...sessionResult,
+      };
+
+      const dataStr = JSON.stringify(exportData, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `composure-sense-${mode}-${Date.now()}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Exported Successfully",
+        description: "Session data exported as JSON",
+      });
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: "Failed to export session data",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Export session as detailed text report
+  const exportSessionReport = () => {
+    if (!sessionStartTime) {
+      toast({
+        title: "No Session Data",
+        description: "Start and run a session before exporting",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const sessionResult = calculateSessionSummary();
+      const formatDuration = (seconds: number) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}m ${secs}s`;
+      };
+
+      let report = `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+COMPOSURE SENSE - ANALYSIS REPORT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📅 Date: ${new Date().toLocaleString()}
+🎯 Mode: ${mode.toUpperCase()}
+⏱️  Duration: ${formatDuration(sessionDuration)}
+📊 Overall Score: ${sessionResult.summary.overallScore}/100
+⭐ Rating: ${sessionResult.summary.rating.toUpperCase()}
+🎥 FPS: ${fps}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+METRICS SUMMARY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+`;
+
+      // Add average metrics
+      sessionResult.averageMetrics.forEach(metric => {
+        report += `${metric.label}: ${metric.value}%\n`;
+      });
+
+      report += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+KEY INSIGHTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+`;
+
+      sessionResult.summary.keyInsights.forEach((insight, idx) => {
+        report += `${idx + 1}. ${insight}\n`;
+      });
+
+      if (sessionResult.summary.strengths.length > 0) {
+        report += `\n✅ STRENGTHS:\n`;
+        sessionResult.summary.strengths.forEach(strength => {
+          report += `  • ${strength}\n`;
+        });
+      }
+
+      if (sessionResult.summary.improvements.length > 0) {
+        report += `\n🎯 AREAS FOR IMPROVEMENT:\n`;
+        sessionResult.summary.improvements.forEach(improvement => {
+          report += `  • ${improvement}\n`;
+        });
+      }
+
+      // Mode-specific details
+      if (mode === "education" && sessionResult.modeSpecificData.educationMetrics) {
+        const edu = sessionResult.modeSpecificData.educationMetrics;
+        report += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+EDUCATION MODE DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Attention Score: ${edu.attentionScore}%
+Engagement Level: ${edu.engagementLevel}
+Focus Quality: ${edu.focusQuality}%
+Learning Readiness: ${edu.learningReadiness}%
+
+Distraction Flags: ${edu.distractionFlags.length > 0 ? edu.distractionFlags.join(', ') : 'None'}
+Participation Indicators: ${edu.participationIndicators.join(', ')}
+`;
+      } else if (mode === "interview" && sessionResult.modeSpecificData.interviewMetrics) {
+        const int = sessionResult.modeSpecificData.interviewMetrics;
+        report += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+INTERVIEW MODE DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Confidence Score: ${int.confidenceScore}%
+Professionalism: ${int.professionalismLevel}
+Energy Level: ${int.energyLevel}%
+Authenticity: ${int.authenticityScore}%
+Communication Quality: ${int.communicationQuality}%
+
+Stress Indicators: ${int.stressIndicators.length > 0 ? int.stressIndicators.join(', ') : 'None'}
+Body Language Strengths: ${int.bodyLanguageStrengths.join(', ')}
+Improvement Areas: ${int.improvementAreas.join(', ')}
+`;
+      }
+
+      report += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Generated by ComposureSense v1.0
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+`;
+
+      const dataBlob = new Blob([report], { type: 'text/plain' });
+      const url = URL.createObjectURL(dataBlob);
+      
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `composure-sense-report-${mode}-${Date.now()}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Report Generated",
+        description: "Detailed report downloaded successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: "Failed to generate report",
+        variant: "destructive",
+      });
+    }
+  };
+
   const startCamera = async () => {
     if (mode === "education" || mode === "interview") {
       if (!detectorReady) {
@@ -2632,7 +2803,7 @@ export default function LiveAnalysis() {
                     <Activity className="w-4 h-4 text-green-500" />
                     <span>Session Duration: {Math.floor(sessionDuration / 60)}:{(sessionDuration % 60).toString().padStart(2, '0')}</span>
                   </div>
-                  <div className="flex justify-center gap-3">
+                  <div className="flex justify-center gap-2 flex-wrap">
                     <Button
                       variant="outline"
                       onClick={saveSession}
@@ -2640,8 +2811,28 @@ export default function LiveAnalysis() {
                       className="gap-2"
                       data-testid="button-save-session"
                     >
-                      <Save className="w-5 h-5" />
-                      {isSaving ? "Saving..." : "Save Session"}
+                      <Save className="w-4 h-4" />
+                      {isSaving ? "Saving..." : "Save"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={exportSessionJSON}
+                      disabled={sessionDuration < 5}
+                      className="gap-2"
+                      data-testid="button-export-json"
+                    >
+                      <Download className="w-4 h-4" />
+                      JSON
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={exportSessionReport}
+                      disabled={sessionDuration < 5}
+                      className="gap-2"
+                      data-testid="button-export-report"
+                    >
+                      <Download className="w-4 h-4" />
+                      Report
                     </Button>
                     <Button
                       variant="destructive"
@@ -2649,8 +2840,8 @@ export default function LiveAnalysis() {
                       className="gap-2"
                       data-testid="button-stop-camera"
                     >
-                      <StopCircle className="w-5 h-5" />
-                      Stop Analysis
+                      <StopCircle className="w-4 h-4" />
+                      Stop
                     </Button>
                   </div>
                 </div>
