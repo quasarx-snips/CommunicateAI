@@ -11,7 +11,7 @@ import * as faceapi from "@vladmandic/face-api";
 import { getComposureAdjective } from "@/utils/adjectives";
 import { modelLoader } from "@/lib/modelLoader";
 
-type AnalysisMode = "security" | "education" | "interview" | "expressions";
+type AnalysisMode = "security" | "education" | "interview" | "expressions" | "composure" | "decoder";
 
 interface EmotionData {
   neutral: number;
