@@ -7,12 +7,9 @@ import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import * as poseDetection from "@tensorflow-models/pose-detection";
-import * as tf from "@tensorflow/tfjs-core";
-import "@tensorflow/tfjs-converter";
-import "@tensorflow/tfjs-backend-webgl";
-import "@tensorflow/tfjs-backend-cpu";
 import * as faceapi from "@vladmandic/face-api";
 import { getComposureAdjective } from "@/utils/adjectives";
+import { modelLoader } from "@/lib/modelLoader";
 
 type AnalysisMode = "composure" | "expressions";
 
@@ -151,26 +148,29 @@ export default function LiveAnalysis() {
     try {
       setIsLoading(true);
 
-      await tf.ready();
-
-      try {
-        await tf.setBackend('webgl');
-        console.log('Using WebGL backend');
-      } catch (e) {
-        console.warn('WebGL backend failed, falling back to CPU');
-        await tf.setBackend('cpu');
+      // Use cached model if available
+      const cachedDetector = modelLoader.getPoseDetector();
+      if (cachedDetector) {
+        detectorRef.current = cachedDetector;
+        setDetectorReady(true);
+        setIsLoading(false);
+        console.log('✅ Using cached pose detector');
+        return true;
       }
 
-      const model = poseDetection.SupportedModels.MoveNet;
-      const detectorConfig = {
-        modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
-      };
-
-      detectorRef.current = await poseDetection.createDetector(model, detectorConfig);
-      setDetectorReady(true);
-      setIsLoading(false);
-      console.log('Pose detector initialized successfully');
-      return true;
+      // Fallback: initialize if not cached
+      console.log('⏳ Pose detector not cached, initializing...');
+      await modelLoader.initialize();
+      detectorRef.current = modelLoader.getPoseDetector();
+      
+      if (detectorRef.current) {
+        setDetectorReady(true);
+        setIsLoading(false);
+        console.log('✅ Pose detector initialized');
+        return true;
+      } else {
+        throw new Error('Failed to get pose detector from cache');
+      }
     } catch (error) {
       console.error("Error initializing pose detector:", error);
       setDetectorReady(false);
@@ -188,31 +188,28 @@ export default function LiveAnalysis() {
     try {
       setIsLoading(true);
 
-      await tf.ready();
-
-      // Try WebGL first, fallback to CPU for compatibility
-      try {
-        await tf.setBackend('webgl');
-        console.log('Using WebGL backend for face detection');
-      } catch (e) {
-        console.warn('WebGL not available, using CPU backend');
-        await tf.setBackend('cpu');
+      // Use cached model if available
+      if (modelLoader.isFaceAPILoaded()) {
+        faceApiLoadedRef.current = true;
+        setFaceDetectorReady(true);
+        setIsLoading(false);
+        console.log('✅ Using cached face-API models');
+        return true;
       }
 
-      // Load face-api.js models for face detection, landmarks, and emotion recognition
-      const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+      // Fallback: initialize if not cached
+      console.log('⏳ Face-API not cached, initializing...');
+      await modelLoader.initialize();
       
-      await Promise.all([
-        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL), // Lightweight detector for mobile
-        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-        faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
-      ]);
-
-      faceApiLoadedRef.current = true;
-      setFaceDetectorReady(true);
-      setIsLoading(false);
-      console.log('Face-API models loaded successfully');
-      return true;
+      if (modelLoader.isFaceAPILoaded()) {
+        faceApiLoadedRef.current = true;
+        setFaceDetectorReady(true);
+        setIsLoading(false);
+        console.log('✅ Face-API models initialized');
+        return true;
+      } else {
+        throw new Error('Failed to load face-API from cache');
+      }
     } catch (error) {
       console.error("Error initializing face detector:", error);
       setFaceDetectorReady(false);
@@ -1006,9 +1003,8 @@ export default function LiveAnalysis() {
 
     return () => {
       stopCamera();
-      if (detectorRef.current) {
-        detectorRef.current.dispose();
-      }
+      // Don't dispose detector - it's shared from cache
+      detectorRef.current = null;
     };
   }, [mode]);
 
