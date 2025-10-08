@@ -11,7 +11,7 @@ import * as faceapi from "@vladmandic/face-api";
 import { getComposureAdjective } from "@/utils/adjectives";
 import { modelLoader } from "@/lib/modelLoader";
 
-type AnalysisMode = "composure" | "expressions";
+type AnalysisMode = "composure" | "expressions" | "decoder";
 
 interface EmotionData {
   neutral: number;
@@ -47,6 +47,8 @@ export default function LiveAnalysis() {
     sad: 0
   });
   const [faceTracking, setFaceTracking] = useState<boolean>(false);
+  const [decodedTexts, setDecodedTexts] = useState<string[]>([]);
+  const [currentDecoding, setCurrentDecoding] = useState<string>("");
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -65,6 +67,9 @@ export default function LiveAnalysis() {
   const adjectiveStableRef = useRef<{ adjective: string; score: number }>({ adjective: "Neutral", score: 0 });
   const frameSkipCounterRef = useRef(0);
   const faceBoxHistoryRef = useRef<Array<{ x: number; y: number; width: number; height: number }>>([]);
+  const lastDecodedActionRef = useRef<string>("");
+  const decodingHistoryRef = useRef<string[]>([]);
+  const lastPoseRef = useRef<any>(null);
   
   const { toast } = useToast();
 
@@ -504,6 +509,171 @@ export default function LiveAnalysis() {
     return "Neutral";
   };
 
+  const decodeBodyLanguage = (keypoints: any[]): string => {
+    const getKeypoint = (name: string) => keypoints.find((kp) => kp.name === name);
+    
+    const leftWrist = getKeypoint("left_wrist");
+    const rightWrist = getKeypoint("right_wrist");
+    const leftElbow = getKeypoint("left_elbow");
+    const rightElbow = getKeypoint("right_elbow");
+    const leftShoulder = getKeypoint("left_shoulder");
+    const rightShoulder = getKeypoint("right_shoulder");
+    const leftHip = getKeypoint("left_hip");
+    const rightHip = getKeypoint("right_hip");
+    const nose = getKeypoint("nose");
+    const leftEye = getKeypoint("left_eye");
+    const rightEye = getKeypoint("right_eye");
+
+    const CONF = 0.5;
+    
+    // Hand raising detection
+    if (rightWrist && rightShoulder && rightWrist.score > CONF && rightShoulder.score > CONF) {
+      if (rightWrist.y < rightShoulder.y - 0.15) {
+        return "Raising right hand to signal attention or ask a question";
+      }
+    }
+    
+    if (leftWrist && leftShoulder && leftWrist.score > CONF && leftShoulder.score > CONF) {
+      if (leftWrist.y < leftShoulder.y - 0.15) {
+        return "Raising left hand to signal attention or ask a question";
+      }
+    }
+
+    // Pointing gesture
+    if (rightWrist && rightElbow && rightShoulder && 
+        rightWrist.score > CONF && rightElbow.score > CONF) {
+      const armAngle = Math.atan2(rightWrist.y - rightElbow.y, rightWrist.x - rightElbow.x);
+      if (rightWrist.x > rightElbow.x && Math.abs(armAngle) < 0.5) {
+        return "Pointing to the right, directing attention";
+      }
+      if (rightWrist.x < rightElbow.x && Math.abs(Math.PI - Math.abs(armAngle)) < 0.5) {
+        return "Pointing to the left, indicating direction";
+      }
+    }
+
+    // Arms crossed - defensive or closed off
+    if (leftWrist && rightWrist && leftShoulder && rightShoulder &&
+        leftWrist.score > CONF && rightWrist.score > CONF) {
+      if (leftWrist.x > rightShoulder.x && rightWrist.x < leftShoulder.x) {
+        return "Arms crossed over chest, showing defensiveness or contemplation";
+      }
+    }
+
+    // Hands on hips - confidence or authority
+    if (leftWrist && rightWrist && leftHip && rightHip &&
+        leftWrist.score > CONF && rightWrist.score > CONF) {
+      const leftDist = Math.abs(leftWrist.x - leftHip.x) + Math.abs(leftWrist.y - leftHip.y);
+      const rightDist = Math.abs(rightWrist.x - rightHip.x) + Math.abs(rightWrist.y - rightHip.y);
+      if (leftDist < 0.2 && rightDist < 0.2) {
+        return "Hands on hips, displaying confidence and authority";
+      }
+    }
+
+    // Hand to face - thinking or uncertain
+    if (nose && (leftWrist || rightWrist)) {
+      if (rightWrist && rightWrist.score > CONF) {
+        const distance = Math.sqrt(Math.pow(nose.x - rightWrist.x, 2) + Math.pow(nose.y - rightWrist.y, 2));
+        if (distance < 0.18) {
+          return "Hand near face, suggesting thinking or uncertainty";
+        }
+      }
+      if (leftWrist && leftWrist.score > CONF) {
+        const distance = Math.sqrt(Math.pow(nose.x - leftWrist.x, 2) + Math.pow(nose.y - leftWrist.y, 2));
+        if (distance < 0.18) {
+          return "Hand touching face, indicating contemplation or doubt";
+        }
+      }
+    }
+
+    // Open arms - welcoming or explaining
+    if (leftWrist && rightWrist && leftShoulder && rightShoulder &&
+        leftWrist.score > CONF && rightWrist.score > CONF) {
+      const armSpan = Math.abs(leftWrist.x - rightWrist.x);
+      const shoulderSpan = Math.abs(leftShoulder.x - rightShoulder.x);
+      if (armSpan > shoulderSpan * 1.7) {
+        if (leftWrist.y > leftShoulder.y && rightWrist.y > rightShoulder.y) {
+          return "Arms spread wide open, expressing welcome or emphasizing a point";
+        }
+        if (leftWrist.y < leftShoulder.y && rightWrist.y < rightShoulder.y) {
+          return "Arms raised and spread, showing excitement or celebration";
+        }
+      }
+    }
+
+    // Leaning forward - engagement
+    if (nose && leftShoulder && rightShoulder && leftHip && rightHip &&
+        nose.score > 0.6 && leftShoulder.score > CONF && rightShoulder.score > CONF) {
+      const shoulderMid = { x: (leftShoulder.x + leftShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
+      const hipMid = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
+      
+      if (nose.y > shoulderMid.y && Math.abs(nose.x - shoulderMid.x) < 0.15) {
+        const vertDist = Math.abs(shoulderMid.y - hipMid.y);
+        const horizDist = Math.abs(shoulderMid.x - hipMid.x);
+        if (horizDist > vertDist * 0.15) {
+          return "Leaning forward, showing active engagement and interest";
+        }
+      }
+    }
+
+    // Hands behind back - formal or reserved
+    if (leftWrist && rightWrist && leftHip && rightHip &&
+        leftWrist.score > CONF && rightWrist.score > CONF) {
+      const hipMid = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
+      if (leftWrist.y > hipMid.y && rightWrist.y > hipMid.y &&
+          Math.abs(leftWrist.x - rightWrist.x) < 0.15) {
+        return "Hands clasped behind back, displaying formal posture or restraint";
+      }
+    }
+
+    // Fidgeting hands - nervousness
+    if (lastPoseRef.current && leftWrist && rightWrist) {
+      const lastLeftWrist = lastPoseRef.current.keypoints.find((kp: any) => kp.name === "left_wrist");
+      const lastRightWrist = lastPoseRef.current.keypoints.find((kp: any) => kp.name === "right_wrist");
+      
+      if (lastLeftWrist && lastRightWrist && leftWrist.score > CONF && rightWrist.score > CONF) {
+        const leftMovement = Math.sqrt(Math.pow(leftWrist.x - lastLeftWrist.x, 2) + Math.pow(leftWrist.y - lastLeftWrist.y, 2));
+        const rightMovement = Math.sqrt(Math.pow(rightWrist.x - lastRightWrist.x, 2) + Math.pow(rightWrist.y - lastRightWrist.y, 2));
+        
+        if (leftMovement > 0.08 && rightMovement > 0.08) {
+          return "Hands moving rapidly, indicating nervousness or restlessness";
+        }
+      }
+    }
+
+    // Slouching - low energy or disinterest
+    if (leftShoulder && rightShoulder && leftHip && rightHip &&
+        leftShoulder.score > CONF && rightShoulder.score > CONF) {
+      const shoulderMid = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
+      const hipMid = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
+      
+      const vertDist = Math.abs(shoulderMid.y - hipMid.y);
+      const horizDist = Math.abs(shoulderMid.x - hipMid.x);
+      
+      if (vertDist > 0 && horizDist / vertDist > 0.25) {
+        return "Slouching posture, suggesting low energy or lack of interest";
+      }
+    }
+
+    // Standing tall - confidence
+    if (leftShoulder && rightShoulder && leftHip && rightHip &&
+        leftShoulder.score > CONF && rightShoulder.score > CONF) {
+      const shoulderMid = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
+      const hipMid = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
+      
+      const vertDist = Math.abs(shoulderMid.y - hipMid.y);
+      const horizDist = Math.abs(shoulderMid.x - hipMid.x);
+      
+      if (vertDist > 0 && horizDist / vertDist < 0.1) {
+        const shoulderLevel = Math.abs(leftShoulder.y - rightShoulder.y);
+        if (shoulderLevel < 0.05) {
+          return "Standing upright with level shoulders, projecting confidence";
+        }
+      }
+    }
+
+    return "Maintaining neutral stance";
+  };
+
   const drawPoseLandmarks = (poses: any[], canvas: HTMLCanvasElement) => {
     const ctx = canvas.getContext("2d");
     if (!ctx || !poses.length) return;
@@ -888,6 +1058,30 @@ export default function LiveAnalysis() {
               if (ctx) ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
             }
           }
+        } else if (mode === "decoder") {
+          if (!detectorRef.current || !detectorReady) return;
+          
+          const poses = await detectorRef.current.estimatePoses(video, {
+            flipHorizontal: false,
+          });
+
+          if (poses && poses.length > 0) {
+            const decodedText = decodeBodyLanguage(poses[0].keypoints);
+            
+            // Only add to history if it's a new action (not "Maintaining neutral stance")
+            if (decodedText !== lastDecodedActionRef.current && decodedText !== "Maintaining neutral stance") {
+              lastDecodedActionRef.current = decodedText;
+              decodingHistoryRef.current.push(decodedText);
+              setDecodedTexts([...decodingHistoryRef.current]);
+            }
+            
+            setCurrentDecoding(decodedText);
+            drawPoseLandmarks(poses, overlayCanvas);
+            lastPoseRef.current = poses[0];
+          } else {
+            const ctx = overlayCanvas.getContext("2d");
+            if (ctx) ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+          }
         }
 
         const now = performance.now();
@@ -987,6 +1181,9 @@ export default function LiveAnalysis() {
     scoreHistoryRef.current = [];
     adjectiveStableRef.current = { adjective: "Neutral", score: 0 };
     faceBoxHistoryRef.current = [];
+    lastDecodedActionRef.current = "";
+    decodingHistoryRef.current = [];
+    lastPoseRef.current = null;
     
     setIsStreaming(false);
     setFeedback([]);
@@ -997,6 +1194,8 @@ export default function LiveAnalysis() {
     setCurrentAdjective("Neutral");
     setComposureScore(0);
     setIsStable(false);
+    setDecodedTexts([]);
+    setCurrentDecoding("");
     setEmotions({
       neutral: 0, happy: 0, surprise: 0, angry: 0, disgust: 0, fear: 0, sad: 0
     });
@@ -1008,7 +1207,7 @@ export default function LiveAnalysis() {
   };
 
   useEffect(() => {
-    if (mode === "composure") {
+    if (mode === "composure" || mode === "decoder") {
       initializePoseDetector();
     } else {
       initializeFaceDetector();
@@ -1079,12 +1278,15 @@ export default function LiveAnalysis() {
 
         <div className="mb-6 flex justify-center">
           <Tabs value={mode} onValueChange={(value) => switchMode(value as AnalysisMode)}>
-            <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsList className="grid w-full max-w-2xl grid-cols-3">
               <TabsTrigger value="composure" data-testid="tab-composure">
                 Composure
               </TabsTrigger>
               <TabsTrigger value="expressions" data-testid="tab-expressions">
                 Expressions
+              </TabsTrigger>
+              <TabsTrigger value="decoder" data-testid="tab-decoder">
+                Body Language Decoder
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -1156,7 +1358,54 @@ export default function LiveAnalysis() {
           </div>
 
           <div className="space-y-4">
-            {mode === "composure" ? (
+            {mode === "decoder" ? (
+              <>
+                <Card className="p-4 bg-gradient-to-br from-purple-600/20 to-blue-600/20 border-purple-500/30">
+                  <h2 className="text-lg font-semibold mb-3">Current Action</h2>
+                  <div className="bg-black/40 rounded-lg p-4 min-h-[80px] flex items-center justify-center">
+                    <p className="text-center text-white font-medium" data-testid="current-decoding">
+                      {currentDecoding || "Waiting for movement..."}
+                    </p>
+                  </div>
+                </Card>
+
+                <Card className="p-4 bg-black/90 dark:bg-black/95">
+                  <h2 className="text-lg font-semibold mb-3 text-white">Session History</h2>
+                  <div className="space-y-2 max-h-[400px] overflow-y-auto" data-testid="decoding-history">
+                    {decodedTexts.length > 0 ? (
+                      decodedTexts.map((text, index) => (
+                        <div
+                          key={index}
+                          className="bg-gradient-to-r from-purple-900/40 to-blue-900/40 rounded-lg p-3 border border-purple-500/20"
+                        >
+                          <div className="flex items-start gap-3">
+                            <span className="text-purple-400 font-bold text-sm mt-0.5">#{index + 1}</span>
+                            <p className="text-gray-200 text-sm flex-1">{text}</p>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-gray-400 text-center py-8">
+                        {isStreaming ? "Tracking your movements..." : "Start camera to begin decoding"}
+                      </p>
+                    )}
+                  </div>
+                </Card>
+
+                <Card className="p-4 bg-black/90 dark:bg-black/95">
+                  <h2 className="text-lg font-semibold mb-3 text-white">How It Works</h2>
+                  <div className="space-y-2 text-sm text-gray-300">
+                    <p>• Raise hands to signal attention</p>
+                    <p>• Point to indicate direction</p>
+                    <p>• Cross arms to show contemplation</p>
+                    <p>• Hands on hips for confidence</p>
+                    <p>• Open arms to express welcome</p>
+                    <p>• Touch face when thinking</p>
+                    <p>• Stand tall to project confidence</p>
+                  </div>
+                </Card>
+              </>
+            ) : mode === "composure" ? (
               <>
                 <Card className="p-4 bg-gradient-to-br from-blue-600/20 to-purple-600/20 border-blue-500/30">
                   <div className="flex items-center justify-between mb-3">
