@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Camera, Loader2, ArrowLeft, StopCircle, Activity } from "lucide-react";
+import { Camera, Loader2, ArrowLeft, StopCircle, Activity, Shield, GraduationCap, Briefcase, AlertTriangle, Eye, Zap } from "lucide-react";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
@@ -11,7 +11,7 @@ import * as faceapi from "@vladmandic/face-api";
 import { getComposureAdjective } from "@/utils/adjectives";
 import { modelLoader } from "@/lib/modelLoader";
 
-type AnalysisMode = "composure" | "expressions" | "decoder";
+type AnalysisMode = "security" | "education" | "interview" | "expressions";
 
 interface EmotionData {
   neutral: number;
@@ -23,9 +23,39 @@ interface EmotionData {
   sad: number;
 }
 
+interface SecurityMetrics {
+  threatLevel: "SAFE" | "CAUTION" | "WARNING" | "CRITICAL";
+  suspiciousScore: number;
+  behaviorFlags: string[];
+  anomalyDetected: boolean;
+  attentionLevel: number;
+  fidgetingScore: number;
+  postureDeviation: number;
+}
+
+interface EducationMetrics {
+  attentionScore: number;
+  engagementLevel: "LOW" | "MEDIUM" | "HIGH" | "VERY HIGH";
+  distractionFlags: string[];
+  focusQuality: number;
+  participationIndicators: string[];
+  learningReadiness: number;
+}
+
+interface InterviewMetrics {
+  confidenceScore: number;
+  professionalismLevel: "POOR" | "FAIR" | "GOOD" | "EXCELLENT";
+  energyLevel: number;
+  stressIndicators: string[];
+  authenticityScore: number;
+  communicationQuality: number;
+  bodyLanguageStrengths: string[];
+  improvementAreas: string[];
+}
+
 export default function LiveAnalysis() {
   const [, setLocation] = useLocation();
-  const [mode, setMode] = useState<AnalysisMode>("composure");
+  const [mode, setMode] = useState<AnalysisMode>("security");
   const [isStreaming, setIsStreaming] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [feedback, setFeedback] = useState<string[]>([]);
@@ -33,6 +63,40 @@ export default function LiveAnalysis() {
   const [fps, setFps] = useState(0);
   const [detectorReady, setDetectorReady] = useState(false);
   const [faceDetectorReady, setFaceDetectorReady] = useState(false);
+  
+  // Security Mode State
+  const [securityMetrics, setSecurityMetrics] = useState<SecurityMetrics>({
+    threatLevel: "SAFE",
+    suspiciousScore: 0,
+    behaviorFlags: [],
+    anomalyDetected: false,
+    attentionLevel: 0,
+    fidgetingScore: 0,
+    postureDeviation: 0
+  });
+  
+  // Education Mode State
+  const [educationMetrics, setEducationMetrics] = useState<EducationMetrics>({
+    attentionScore: 0,
+    engagementLevel: "MEDIUM",
+    distractionFlags: [],
+    focusQuality: 0,
+    participationIndicators: [],
+    learningReadiness: 0
+  });
+  
+  // Interview Mode State
+  const [interviewMetrics, setInterviewMetrics] = useState<InterviewMetrics>({
+    confidenceScore: 0,
+    professionalismLevel: "FAIR",
+    energyLevel: 0,
+    stressIndicators: [],
+    authenticityScore: 0,
+    communicationQuality: 0,
+    bodyLanguageStrengths: [],
+    improvementAreas: []
+  });
+  
   const [currentGesture, setCurrentGesture] = useState<string>("Neutral");
   const [currentAdjective, setCurrentAdjective] = useState<string>("Neutral");
   const [composureScore, setComposureScore] = useState<number>(0);
@@ -47,8 +111,6 @@ export default function LiveAnalysis() {
     sad: 0
   });
   const [faceTracking, setFaceTracking] = useState<boolean>(false);
-  const [decodedTexts, setDecodedTexts] = useState<string[]>([]);
-  const [currentDecoding, setCurrentDecoding] = useState<string>("");
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -509,6 +571,435 @@ export default function LiveAnalysis() {
     return "Neutral";
   };
 
+  // SECURITY MODE: Advanced Threat Detection & Behavioral Analysis
+  const analyzeSecurityBehavior = (keypoints: any[], expressions?: any): SecurityMetrics => {
+    const getKeypoint = (name: string) => keypoints.find((kp) => kp.name === name);
+    
+    const leftWrist = getKeypoint("left_wrist");
+    const rightWrist = getKeypoint("right_wrist");
+    const leftShoulder = getKeypoint("left_shoulder");
+    const rightShoulder = getKeypoint("right_shoulder");
+    const leftHip = getKeypoint("left_hip");
+    const rightHip = getKeypoint("right_hip");
+    const nose = getKeypoint("nose");
+    const leftEye = getKeypoint("left_eye");
+    const rightEye = getKeypoint("right_eye");
+    
+    const CONF = 0.5;
+    let suspiciousScore = 0;
+    const behaviorFlags: string[] = [];
+    let anomalyDetected = false;
+    
+    // 1. CONCEALMENT DETECTION - Hiding hands (common in suspicious behavior)
+    if (leftWrist && rightWrist && leftHip && rightHip) {
+      const handsHidden = (leftWrist.score < 0.3 && rightWrist.score < 0.3);
+      if (handsHidden) {
+        suspiciousScore += 25;
+        behaviorFlags.push("Hands concealed - potential threat indicator");
+        anomalyDetected = true;
+      }
+      
+      // Hands in pockets or behind back
+      if (leftWrist.y > leftHip.y + 0.15 || rightWrist.y > rightHip.y + 0.15) {
+        suspiciousScore += 15;
+        behaviorFlags.push("Hands positioned suspiciously low");
+      }
+    }
+    
+    // 2. EXCESSIVE MOVEMENT DETECTION - Fidgeting, nervousness
+    if (lastPoseRef.current && leftWrist && rightWrist) {
+      const lastLeftWrist = lastPoseRef.current.keypoints.find((kp: any) => kp.name === "left_wrist");
+      const lastRightWrist = lastPoseRef.current.keypoints.find((kp: any) => kp.name === "right_wrist");
+      
+      if (lastLeftWrist && lastRightWrist) {
+        const leftMovement = Math.sqrt(Math.pow(leftWrist.x - lastLeftWrist.x, 2) + Math.pow(leftWrist.y - lastLeftWrist.y, 2));
+        const rightMovement = Math.sqrt(Math.pow(rightWrist.x - lastRightWrist.x, 2) + Math.pow(rightWrist.y - lastRightWrist.y, 2));
+        
+        if (leftMovement > 0.12 || rightMovement > 0.12) {
+          suspiciousScore += 10;
+          behaviorFlags.push("Excessive hand movement detected");
+        }
+      }
+    }
+    
+    // 3. AGGRESSIVE POSTURE DETECTION
+    if (leftShoulder && rightShoulder && leftHip && rightHip) {
+      const shoulderWidth = Math.abs(leftShoulder.x - rightShoulder.x);
+      const hipWidth = Math.abs(leftHip.x - rightHip.x);
+      const shoulderExpansion = shoulderWidth / hipWidth;
+      
+      if (shoulderExpansion > 1.3) {
+        suspiciousScore += 20;
+        behaviorFlags.push("Aggressive posture - expanded shoulders");
+        anomalyDetected = true;
+      }
+    }
+    
+    // 4. FACE AVOIDANCE - Not looking at camera
+    if (nose && leftEye && rightEye && leftShoulder && rightShoulder) {
+      const shoulderMid = { x: (leftShoulder.x + rightShoulder.x) / 2 };
+      const faceDeviation = Math.abs(nose.x - shoulderMid.x);
+      
+      if (faceDeviation > 0.2) {
+        suspiciousScore += 15;
+        behaviorFlags.push("Face turned away - avoiding detection");
+      }
+    }
+    
+    // 5. EMOTION-BASED THREAT ASSESSMENT
+    if (expressions) {
+      if (expressions.angry > 0.6) {
+        suspiciousScore += 25;
+        behaviorFlags.push("High anger detected");
+        anomalyDetected = true;
+      }
+      if (expressions.fear > 0.5) {
+        suspiciousScore += 15;
+        behaviorFlags.push("Fear response detected");
+      }
+      if (expressions.disgust > 0.5) {
+        suspiciousScore += 10;
+        behaviorFlags.push("Contempt/disgust detected");
+      }
+    }
+    
+    // 6. PACING/REPETITIVE MOVEMENT
+    if (leftHip && rightHip && lastPoseRef.current) {
+      const lastLeftHip = lastPoseRef.current.keypoints.find((kp: any) => kp.name === "left_hip");
+      const lastRightHip = lastPoseRef.current.keypoints.find((kp: any) => kp.name === "right_hip");
+      
+      if (lastLeftHip && lastRightHip) {
+        const bodyMovement = Math.sqrt(
+          Math.pow(leftHip.x - lastLeftHip.x, 2) + Math.pow(leftHip.y - lastLeftHip.y, 2)
+        );
+        
+        if (bodyMovement > 0.08) {
+          suspiciousScore += 8;
+          behaviorFlags.push("Pacing or restless movement");
+        }
+      }
+    }
+    
+    // Calculate threat level
+    let threatLevel: "SAFE" | "CAUTION" | "WARNING" | "CRITICAL" = "SAFE";
+    if (suspiciousScore > 70) threatLevel = "CRITICAL";
+    else if (suspiciousScore > 50) threatLevel = "WARNING";
+    else if (suspiciousScore > 25) threatLevel = "CAUTION";
+    
+    // Calculate attention level (inverse of distraction)
+    const attentionLevel = Math.max(0, 100 - suspiciousScore);
+    
+    // Calculate fidgeting score
+    const fidgetingScore = Math.min(100, suspiciousScore);
+    
+    // Calculate posture deviation
+    const postureDeviation = Math.min(100, suspiciousScore * 0.8);
+    
+    return {
+      threatLevel,
+      suspiciousScore: Math.min(100, suspiciousScore),
+      behaviorFlags: behaviorFlags.slice(0, 5),
+      anomalyDetected,
+      attentionLevel,
+      fidgetingScore,
+      postureDeviation
+    };
+  };
+  
+  // EDUCATION MODE: Attention & Engagement Tracking
+  const analyzeEducationBehavior = (keypoints: any[], expressions?: any): EducationMetrics => {
+    const getKeypoint = (name: string) => keypoints.find((kp) => kp.name === name);
+    
+    const nose = getKeypoint("nose");
+    const leftEye = getKeypoint("left_eye");
+    const rightEye = getKeypoint("right_eye");
+    const leftShoulder = getKeypoint("left_shoulder");
+    const rightShoulder = getKeypoint("right_shoulder");
+    const leftWrist = getKeypoint("left_wrist");
+    const rightWrist = getKeypoint("right_wrist");
+    const leftHip = getKeypoint("left_hip");
+    const rightHip = getKeypoint("right_hip");
+    
+    const CONF = 0.5;
+    let attentionScore = 100;
+    const distractionFlags: string[] = [];
+    const participationIndicators: string[] = [];
+    
+    // 1. FACE DIRECTION - Is student looking at screen/teacher?
+    if (nose && leftEye && rightEye && leftShoulder && rightShoulder) {
+      const shoulderMid = { x: (leftShoulder.x + rightShoulder.x) / 2 };
+      const faceDeviation = Math.abs(nose.x - shoulderMid.x);
+      
+      if (faceDeviation > 0.15) {
+        attentionScore -= 25;
+        distractionFlags.push("Looking away from focus point");
+      } else {
+        participationIndicators.push("Maintaining eye contact");
+      }
+    }
+    
+    // 2. HEAD POSITION - Slouching indicates low engagement
+    if (nose && leftShoulder && rightShoulder) {
+      const shoulderMid = { y: (leftShoulder.y + rightShoulder.y) / 2 };
+      const headDrop = nose.y - shoulderMid.y;
+      
+      if (headDrop > 0.15) {
+        attentionScore -= 20;
+        distractionFlags.push("Head down - possible distraction");
+      }
+    }
+    
+    // 3. HAND ACTIVITY - Writing, raising hand, or distracted?
+    if (leftWrist && rightWrist && leftShoulder && rightShoulder) {
+      // Hand raised (participation)
+      if (rightWrist.y < rightShoulder.y - 0.15 || leftWrist.y < leftShoulder.y - 0.15) {
+        attentionScore = Math.min(100, attentionScore + 20);
+        participationIndicators.push("Hand raised - active participation");
+      }
+      
+      // Hands on face (distraction/boredom)
+      if (nose && rightWrist.score > CONF) {
+        const distance = Math.sqrt(Math.pow(nose.x - rightWrist.x, 2) + Math.pow(nose.y - rightWrist.y, 2));
+        if (distance < 0.15) {
+          attentionScore -= 15;
+          distractionFlags.push("Hand on face - loss of focus");
+        }
+      }
+    }
+    
+    // 4. POSTURE ENGAGEMENT - Leaning forward shows interest
+    if (leftShoulder && rightShoulder && leftHip && rightHip && nose) {
+      const shoulderMid = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
+      const hipMid = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
+      
+      const vertDist = Math.abs(shoulderMid.y - hipMid.y);
+      const horizDist = Math.abs(shoulderMid.x - hipMid.x);
+      
+      if (horizDist > vertDist * 0.12 && nose.y > shoulderMid.y) {
+        attentionScore = Math.min(100, attentionScore + 15);
+        participationIndicators.push("Leaning forward - engaged");
+      }
+    }
+    
+    // 5. EMOTIONAL ENGAGEMENT
+    if (expressions) {
+      if (expressions.happy > 0.4 || expressions.surprised > 0.4) {
+        attentionScore = Math.min(100, attentionScore + 10);
+        participationIndicators.push("Positive emotional response");
+      }
+      if (expressions.neutral > 0.7 && expressions.happy < 0.1) {
+        attentionScore -= 10;
+        distractionFlags.push("Flat affect - possible disengagement");
+      }
+    }
+    
+    // 6. FIDGETING DETECTION
+    if (lastPoseRef.current && leftWrist && rightWrist) {
+      const lastLeftWrist = lastPoseRef.current.keypoints.find((kp: any) => kp.name === "left_wrist");
+      const lastRightWrist = lastPoseRef.current.keypoints.find((kp: any) => kp.name === "right_wrist");
+      
+      if (lastLeftWrist && lastRightWrist) {
+        const movement = Math.sqrt(
+          Math.pow(leftWrist.x - lastLeftWrist.x, 2) + Math.pow(rightWrist.x - lastRightWrist.x, 2)
+        );
+        
+        if (movement > 0.1) {
+          attentionScore -= 15;
+          distractionFlags.push("Excessive fidgeting detected");
+        }
+      }
+    }
+    
+    // Calculate engagement level
+    let engagementLevel: "LOW" | "MEDIUM" | "HIGH" | "VERY HIGH" = "MEDIUM";
+    if (attentionScore >= 85) engagementLevel = "VERY HIGH";
+    else if (attentionScore >= 65) engagementLevel = "HIGH";
+    else if (attentionScore >= 40) engagementLevel = "MEDIUM";
+    else engagementLevel = "LOW";
+    
+    // Focus quality (0-100)
+    const focusQuality = Math.max(0, Math.min(100, attentionScore));
+    
+    // Learning readiness (combines attention, posture, and emotional state)
+    const learningReadiness = Math.max(0, Math.min(100, attentionScore - distractionFlags.length * 5));
+    
+    return {
+      attentionScore: Math.max(0, Math.min(100, attentionScore)),
+      engagementLevel,
+      distractionFlags: distractionFlags.slice(0, 4),
+      focusQuality,
+      participationIndicators: participationIndicators.slice(0, 4),
+      learningReadiness
+    };
+  };
+  
+  // INTERVIEW MODE: Confidence, Professionalism & Communication Quality
+  const analyzeInterviewBehavior = (keypoints: any[], expressions?: any): InterviewMetrics => {
+    const getKeypoint = (name: string) => keypoints.find((kp) => kp.name === name);
+    
+    const nose = getKeypoint("nose");
+    const leftEye = getKeypoint("left_eye");
+    const rightEye = getKeypoint("right_eye");
+    const leftShoulder = getKeypoint("left_shoulder");
+    const rightShoulder = getKeypoint("right_shoulder");
+    const leftWrist = getKeypoint("left_wrist");
+    const rightWrist = getKeypoint("right_wrist");
+    const leftHip = getKeypoint("left_hip");
+    const rightHip = getKeypoint("right_hip");
+    
+    const CONF = 0.5;
+    let confidenceScore = 50;
+    let energyLevel = 50;
+    let authenticityScore = 70;
+    let communicationQuality = 60;
+    const stressIndicators: string[] = [];
+    const strengths: string[] = [];
+    const improvements: string[] = [];
+    
+    // 1. POSTURE CONFIDENCE
+    if (leftShoulder && rightShoulder && leftHip && rightHip) {
+      // Shoulder level (confidence indicator)
+      const shoulderLevel = Math.abs(leftShoulder.y - rightShoulder.y);
+      if (shoulderLevel < 0.05) {
+        confidenceScore += 15;
+        strengths.push("Level shoulders - confident posture");
+      } else {
+        confidenceScore -= 10;
+        improvements.push("Level your shoulders for stronger presence");
+      }
+      
+      // Upright posture
+      const shoulderMid = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
+      const hipMid = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
+      const vertDist = Math.abs(shoulderMid.y - hipMid.y);
+      const horizDist = Math.abs(shoulderMid.x - hipMid.x);
+      
+      const uprightness = vertDist / Math.sqrt(vertDist * vertDist + horizDist * horizDist);
+      if (uprightness > 0.95) {
+        confidenceScore += 20;
+        strengths.push("Excellent upright posture");
+      } else if (uprightness < 0.85) {
+        confidenceScore -= 15;
+        improvements.push("Sit/stand more upright");
+      }
+    }
+    
+    // 2. EYE CONTACT & FACE DIRECTION
+    if (nose && leftEye && rightEye && leftShoulder && rightShoulder) {
+      const shoulderMid = { x: (leftShoulder.x + rightShoulder.x) / 2 };
+      const faceDeviation = Math.abs(nose.x - shoulderMid.x);
+      
+      if (faceDeviation < 0.1) {
+        confidenceScore += 15;
+        communicationQuality += 20;
+        strengths.push("Direct eye contact maintained");
+      } else {
+        confidenceScore -= 10;
+        communicationQuality -= 15;
+        improvements.push("Maintain direct eye contact");
+      }
+    }
+    
+    // 3. HAND GESTURES - Natural vs. Nervous
+    if (leftWrist && rightWrist && leftShoulder && rightShoulder) {
+      // Open hand gestures (confidence)
+      const armSpan = Math.abs(leftWrist.x - rightWrist.x);
+      const shoulderSpan = Math.abs(leftShoulder.x - rightShoulder.x);
+      
+      if (armSpan > shoulderSpan * 1.2 && leftWrist.y < leftShoulder.y + 0.1) {
+        confidenceScore += 15;
+        energyLevel += 20;
+        strengths.push("Expressive hand gestures - engaging");
+      }
+      
+      // Fidgeting detection
+      if (lastPoseRef.current) {
+        const lastLeftWrist = lastPoseRef.current.keypoints.find((kp: any) => kp.name === "left_wrist");
+        const lastRightWrist = lastPoseRef.current.keypoints.find((kp: any) => kp.name === "right_wrist");
+        
+        if (lastLeftWrist && lastRightWrist) {
+          const movement = Math.sqrt(
+            Math.pow(leftWrist.x - lastLeftWrist.x, 2) + Math.pow(rightWrist.x - lastRightWrist.x, 2)
+          );
+          
+          if (movement > 0.15) {
+            confidenceScore -= 15;
+            stressIndicators.push("Excessive hand movement - nervousness");
+            authenticityScore -= 10;
+          }
+        }
+      }
+      
+      // Hand-to-face (stress indicator)
+      if (nose && rightWrist.score > CONF) {
+        const distance = Math.sqrt(Math.pow(nose.x - rightWrist.x, 2) + Math.pow(nose.y - rightWrist.y, 2));
+        if (distance < 0.15) {
+          confidenceScore -= 20;
+          stressIndicators.push("Touching face - stress indicator");
+        }
+      }
+    }
+    
+    // 4. EMOTIONAL AUTHENTICITY
+    if (expressions) {
+      // Genuine smile (Duchenne marker)
+      if (expressions.happy > 0.5) {
+        authenticityScore += 15;
+        energyLevel += 15;
+        strengths.push("Positive, approachable demeanor");
+      }
+      
+      // Stress/anxiety markers
+      if (expressions.fear > 0.4 || expressions.surprised > 0.5) {
+        confidenceScore -= 15;
+        stressIndicators.push("Anxiety detected in facial expression");
+        authenticityScore -= 15;
+      }
+      
+      // Anger/frustration
+      if (expressions.angry > 0.3 || expressions.disgust > 0.3) {
+        communicationQuality -= 20;
+        stressIndicators.push("Negative emotion detected");
+      }
+      
+      // Over-controlled (too neutral can seem inauthentic)
+      if (expressions.neutral > 0.8) {
+        authenticityScore -= 10;
+        improvements.push("Show more natural emotion");
+      }
+    }
+    
+    // 5. ENERGY & ENGAGEMENT
+    if (leftShoulder && rightShoulder && nose) {
+      // Leaning forward (engagement)
+      const shoulderMid = { y: (leftShoulder.y + rightShoulder.y) / 2 };
+      if (nose.y > shoulderMid.y + 0.05) {
+        energyLevel += 15;
+        strengths.push("Engaged and attentive body language");
+      }
+    }
+    
+    // 6. PROFESSIONALISM SCORING
+    let professionalismLevel: "POOR" | "FAIR" | "GOOD" | "EXCELLENT" = "FAIR";
+    const overallScore = (confidenceScore + communicationQuality + authenticityScore) / 3;
+    
+    if (overallScore >= 80) professionalismLevel = "EXCELLENT";
+    else if (overallScore >= 65) professionalismLevel = "GOOD";
+    else if (overallScore >= 45) professionalismLevel = "FAIR";
+    else professionalismLevel = "POOR";
+    
+    return {
+      confidenceScore: Math.max(0, Math.min(100, confidenceScore)),
+      professionalismLevel,
+      energyLevel: Math.max(0, Math.min(100, energyLevel)),
+      stressIndicators: stressIndicators.slice(0, 4),
+      authenticityScore: Math.max(0, Math.min(100, authenticityScore)),
+      communicationQuality: Math.max(0, Math.min(100, communicationQuality)),
+      bodyLanguageStrengths: strengths.slice(0, 4),
+      improvementAreas: improvements.slice(0, 4)
+    };
+  };
+
   const decodeBodyLanguage = (keypoints: any[]): string => {
     const getKeypoint = (name: string) => keypoints.find((kp) => kp.name === name);
     
@@ -782,6 +1273,236 @@ export default function LiveAnalysis() {
     }
   };
 
+  // SECURITY MODE VISUALIZATION
+  const drawSecurityOverlay = (poses: any[], canvas: HTMLCanvasElement, metrics: SecurityMetrics) => {
+    const ctx = canvas.getContext("2d");
+    if (!ctx || !poses.length) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const pose = poses[0];
+    const keypoints = pose.keypoints;
+
+    // Draw skeleton with threat-level color coding
+    const threatColors = {
+      SAFE: "rgba(34, 197, 94, 0.9)",
+      CAUTION: "rgba(234, 179, 8, 0.9)",
+      WARNING: "rgba(249, 115, 22, 0.9)",
+      CRITICAL: "rgba(239, 68, 68, 0.9)"
+    };
+    
+    const color = threatColors[metrics.threatLevel];
+
+    // Skeletal connections
+    const connections = [
+      ["left_shoulder", "right_shoulder"],
+      ["left_shoulder", "left_elbow"],
+      ["right_shoulder", "right_elbow"],
+      ["left_elbow", "left_wrist"],
+      ["right_elbow", "right_wrist"],
+      ["left_shoulder", "left_hip"],
+      ["right_shoulder", "right_hip"],
+      ["left_hip", "right_hip"],
+    ];
+
+    connections.forEach(([start, end]) => {
+      const startKp = keypoints.find((kp: any) => kp.name === start);
+      const endKp = keypoints.find((kp: any) => kp.name === end);
+
+      if (startKp && endKp && startKp.score > 0.4 && endKp.score > 0.4) {
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = color;
+        ctx.beginPath();
+        ctx.moveTo(startKp.x, startKp.y);
+        ctx.lineTo(endKp.x, endKp.y);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 4;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+    });
+
+    // Threat level indicator
+    const threatText = `${metrics.threatLevel} - ${metrics.suspiciousScore}%`;
+    ctx.font = "bold 24px Inter, sans-serif";
+    ctx.textAlign = "center";
+    
+    const textWidth = ctx.measureText(threatText).width + 40;
+    const textX = canvas.width / 2;
+    const textY = 50;
+
+    // Background
+    ctx.fillStyle = color;
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = color;
+    ctx.beginPath();
+    ctx.roundRect(textX - textWidth/2, textY - 35, textWidth, 50, 10);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Text
+    ctx.fillStyle = "white";
+    ctx.fillText(threatText, textX, textY);
+  };
+
+  // EDUCATION MODE VISUALIZATION
+  const drawEducationOverlay = (poses: any[], canvas: HTMLCanvasElement, metrics: EducationMetrics) => {
+    const ctx = canvas.getContext("2d");
+    if (!ctx || !poses.length) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const pose = poses[0];
+    const keypoints = pose.keypoints;
+
+    // Engagement color coding
+    const engagementColors = {
+      "VERY HIGH": "rgba(34, 197, 94, 0.9)",
+      "HIGH": "rgba(59, 130, 246, 0.9)",
+      "MEDIUM": "rgba(234, 179, 8, 0.9)",
+      "LOW": "rgba(239, 68, 68, 0.9)"
+    };
+    
+    const color = engagementColors[metrics.engagementLevel];
+
+    // Skeletal visualization
+    const connections = [
+      ["nose", "left_eye"],
+      ["nose", "right_eye"],
+      ["left_shoulder", "right_shoulder"],
+      ["left_shoulder", "left_elbow"],
+      ["right_shoulder", "right_elbow"],
+      ["left_elbow", "left_wrist"],
+      ["right_elbow", "right_wrist"],
+    ];
+
+    connections.forEach(([start, end]) => {
+      const startKp = keypoints.find((kp: any) => kp.name === start);
+      const endKp = keypoints.find((kp: any) => kp.name === end);
+
+      if (startKp && endKp && startKp.score > 0.4 && endKp.score > 0.4) {
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = color;
+        ctx.beginPath();
+        ctx.moveTo(startKp.x, startKp.y);
+        ctx.lineTo(endKp.x, endKp.y);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+    });
+
+    // Attention score display
+    const scoreText = `${metrics.engagementLevel} - ${metrics.attentionScore}%`;
+    ctx.font = "bold 22px Inter, sans-serif";
+    ctx.textAlign = "center";
+    
+    const textWidth = ctx.measureText(scoreText).width + 40;
+    const textX = canvas.width / 2;
+    const textY = 50;
+
+    ctx.fillStyle = color;
+    ctx.shadowBlur = 18;
+    ctx.shadowColor = color;
+    ctx.beginPath();
+    ctx.roundRect(textX - textWidth/2, textY - 32, textWidth, 45, 10);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    ctx.fillStyle = "white";
+    ctx.fillText(scoreText, textX, textY);
+  };
+
+  // INTERVIEW MODE VISUALIZATION
+  const drawInterviewOverlay = (poses: any[], canvas: HTMLCanvasElement, metrics: InterviewMetrics) => {
+    const ctx = canvas.getContext("2d");
+    if (!ctx || !poses.length) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const pose = poses[0];
+    const keypoints = pose.keypoints;
+
+    // Professionalism color coding
+    const profColors = {
+      "EXCELLENT": "rgba(34, 197, 94, 0.9)",
+      "GOOD": "rgba(59, 130, 246, 0.9)",
+      "FAIR": "rgba(234, 179, 8, 0.9)",
+      "POOR": "rgba(239, 68, 68, 0.9)"
+    };
+    
+    const color = profColors[metrics.professionalismLevel];
+
+    // Premium skeletal overlay
+    const connections = [
+      ["nose", "left_eye"],
+      ["nose", "right_eye"],
+      ["left_shoulder", "right_shoulder"],
+      ["left_shoulder", "left_elbow"],
+      ["right_shoulder", "right_elbow"],
+      ["left_elbow", "left_wrist"],
+      ["right_elbow", "right_wrist"],
+      ["left_shoulder", "left_hip"],
+      ["right_shoulder", "right_hip"],
+      ["left_hip", "right_hip"],
+    ];
+
+    connections.forEach(([start, end]) => {
+      const startKp = keypoints.find((kp: any) => kp.name === start);
+      const endKp = keypoints.find((kp: any) => kp.name === end);
+
+      if (startKp && endKp && startKp.score > 0.4 && endKp.score > 0.4) {
+        const gradient = ctx.createLinearGradient(startKp.x, startKp.y, endKp.x, endKp.y);
+        gradient.addColorStop(0, color);
+        gradient.addColorStop(1, color.replace('0.9', '0.6'));
+        
+        ctx.shadowBlur = 14;
+        ctx.shadowColor = color;
+        ctx.beginPath();
+        ctx.moveTo(startKp.x, startKp.y);
+        ctx.lineTo(endKp.x, endKp.y);
+        ctx.strokeStyle = gradient;
+        ctx.lineWidth = 3.5;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+    });
+
+    // Keypoints
+    keypoints.forEach((kp: any) => {
+      if (kp.score > 0.4) {
+        ctx.beginPath();
+        ctx.arc(kp.x, kp.y, 6, 0, 2 * Math.PI);
+        ctx.fillStyle = color;
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = color;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+    });
+
+    // Professionalism display
+    const scoreText = `${metrics.professionalismLevel} - ${metrics.confidenceScore}%`;
+    ctx.font = "bold 22px Inter, sans-serif";
+    ctx.textAlign = "center";
+    
+    const textWidth = ctx.measureText(scoreText).width + 40;
+    const textX = canvas.width / 2;
+    const textY = 50;
+
+    ctx.fillStyle = color;
+    ctx.shadowBlur = 18;
+    ctx.shadowColor = color;
+    ctx.beginPath();
+    ctx.roundRect(textX - textWidth/2, textY - 32, textWidth, 45, 10);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    ctx.fillStyle = "white";
+    ctx.fillText(scoreText, textX, textY);
+  };
+
   // Enhanced composure visualization with premium skeletal overlay and face box
   const drawComposureAnalysis = (poses: any[], canvas: HTMLCanvasElement, adjective: string) => {
     const ctx = canvas.getContext("2d");
@@ -989,7 +1710,61 @@ export default function LiveAnalysis() {
       overlayCanvas.height = video.videoHeight;
 
       try {
-        if (mode === "expressions") {
+        if (mode === "security" || mode === "education" || mode === "interview") {
+          if (!detectorRef.current || !detectorReady) return;
+          
+          // Smart frame skipping for performance
+          const shouldProcess = frameSkipCounterRef.current % 2 === 0;
+          frameSkipCounterRef.current++;
+          
+          if (shouldProcess) {
+            const poses = await detectorRef.current.estimatePoses(video, {
+              flipHorizontal: false,
+            });
+
+            // Also get facial expressions for comprehensive analysis
+            let expressions = null;
+            if (faceApiLoadedRef.current) {
+              const detections = await faceapi
+                .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({
+                  inputSize: 512,
+                  scoreThreshold: 0.5
+                }))
+                .withFaceExpressions();
+              
+              if (detections && detections.length > 0) {
+                expressions = detections[0].expressions;
+              }
+            }
+
+            if (poses && poses.length > 0) {
+              if (mode === "security") {
+                const secMetrics = analyzeSecurityBehavior(poses[0].keypoints, expressions);
+                setSecurityMetrics(secMetrics);
+                
+                // Visual feedback
+                drawSecurityOverlay(poses, overlayCanvas, secMetrics);
+              } else if (mode === "education") {
+                const eduMetrics = analyzeEducationBehavior(poses[0].keypoints, expressions);
+                setEducationMetrics(eduMetrics);
+                
+                // Visual feedback
+                drawEducationOverlay(poses, overlayCanvas, eduMetrics);
+              } else if (mode === "interview") {
+                const intMetrics = analyzeInterviewBehavior(poses[0].keypoints, expressions);
+                setInterviewMetrics(intMetrics);
+                
+                // Visual feedback
+                drawInterviewOverlay(poses, overlayCanvas, intMetrics);
+              }
+
+              lastPoseRef.current = poses[0];
+            } else {
+              const ctx = overlayCanvas.getContext("2d");
+              if (ctx) ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+            }
+          }
+        } else if (mode === "expressions") {
           if (!faceApiLoadedRef.current || !faceDetectorReady) return;
           
           // Detect faces with landmarks and expressions using face-api.js
@@ -1106,7 +1881,7 @@ export default function LiveAnalysis() {
   // No API calls needed - all processing happens in the browser!
 
   const startCamera = async () => {
-    if (mode === "composure") {
+    if (mode === "security" || mode === "education" || mode === "interview") {
       if (!detectorReady) {
         const initialized = await initializePoseDetector();
         if (!initialized) {
@@ -1118,7 +1893,11 @@ export default function LiveAnalysis() {
           return;
         }
       }
-    } else {
+      // Also initialize face API for comprehensive analysis
+      if (!faceDetectorReady) {
+        await initializeFaceDetector();
+      }
+    } else if (mode === "expressions") {
       if (!faceDetectorReady) {
         const initialized = await initializeFaceDetector();
         if (!initialized) {
@@ -1207,15 +1986,16 @@ export default function LiveAnalysis() {
   };
 
   useEffect(() => {
-    if (mode === "composure" || mode === "decoder") {
+    if (mode === "security" || mode === "education" || mode === "interview") {
+      // Initialize both pose and face detectors for comprehensive analysis
       initializePoseDetector();
-    } else {
+      initializeFaceDetector();
+    } else if (mode === "expressions") {
       initializeFaceDetector();
     }
 
     return () => {
       stopCamera();
-      // Don't dispose detector - it's shared from cache
       detectorRef.current = null;
     };
   }, [mode]);
@@ -1278,15 +2058,22 @@ export default function LiveAnalysis() {
 
         <div className="mb-6 flex justify-center">
           <Tabs value={mode} onValueChange={(value) => switchMode(value as AnalysisMode)}>
-            <TabsList className="grid w-full max-w-2xl grid-cols-3">
-              <TabsTrigger value="composure" data-testid="tab-composure">
-                Composure
+            <TabsList className="grid w-full max-w-3xl grid-cols-4">
+              <TabsTrigger value="security" data-testid="tab-security" className="flex items-center gap-2">
+                <Shield className="w-4 h-4" />
+                Security
               </TabsTrigger>
-              <TabsTrigger value="expressions" data-testid="tab-expressions">
+              <TabsTrigger value="education" data-testid="tab-education" className="flex items-center gap-2">
+                <GraduationCap className="w-4 h-4" />
+                Education
+              </TabsTrigger>
+              <TabsTrigger value="interview" data-testid="tab-interview" className="flex items-center gap-2">
+                <Briefcase className="w-4 h-4" />
+                Interview
+              </TabsTrigger>
+              <TabsTrigger value="expressions" data-testid="tab-expressions" className="flex items-center gap-2">
+                <Eye className="w-4 h-4" />
                 Expressions
-              </TabsTrigger>
-              <TabsTrigger value="decoder" data-testid="tab-decoder">
-                BLA
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -1358,7 +2145,287 @@ export default function LiveAnalysis() {
           </div>
 
           <div className="space-y-4">
-            {mode === "decoder" ? (
+            {mode === "security" ? (
+              <>
+                <Card className={`p-4 border-2 ${
+                  securityMetrics.threatLevel === "CRITICAL" ? "border-red-500 bg-red-500/10" :
+                  securityMetrics.threatLevel === "WARNING" ? "border-orange-500 bg-orange-500/10" :
+                  securityMetrics.threatLevel === "CAUTION" ? "border-yellow-500 bg-yellow-500/10" :
+                  "border-green-500 bg-green-500/10"
+                }`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-lg font-semibold flex items-center gap-2">
+                      <Shield className="w-5 h-5" />
+                      Threat Assessment
+                    </h2>
+                    {securityMetrics.anomalyDetected && (
+                      <AlertTriangle className="w-5 h-5 text-red-500 animate-pulse" />
+                    )}
+                  </div>
+                  <div className="space-y-3">
+                    <div>
+                      <div className="text-3xl font-bold text-center" data-testid="threat-level">
+                        {securityMetrics.threatLevel}
+                      </div>
+                      <div className="text-sm text-center text-muted-foreground">
+                        Suspicious Score: {securityMetrics.suspiciousScore}%
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-4">
+                  <h2 className="text-lg font-semibold mb-3">Behavioral Analysis</h2>
+                  <div className="space-y-3">
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>Attention Level</span>
+                        <span className="font-semibold">{securityMetrics.attentionLevel}%</span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-2">
+                        <div className="h-2 rounded-full bg-blue-500" style={{ width: `${securityMetrics.attentionLevel}%` }} />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>Fidgeting Score</span>
+                        <span className="font-semibold">{securityMetrics.fidgetingScore}%</span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-2">
+                        <div className="h-2 rounded-full bg-orange-500" style={{ width: `${securityMetrics.fidgetingScore}%` }} />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>Posture Deviation</span>
+                        <span className="font-semibold">{securityMetrics.postureDeviation}%</span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-2">
+                        <div className="h-2 rounded-full bg-red-500" style={{ width: `${securityMetrics.postureDeviation}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-4 bg-black/90 dark:bg-black/95">
+                  <h2 className="text-lg font-semibold mb-3 text-white">Detected Behaviors</h2>
+                  <div className="space-y-2" data-testid="behavior-flags">
+                    {securityMetrics.behaviorFlags.length > 0 ? (
+                      securityMetrics.behaviorFlags.map((flag, index) => (
+                        <div key={index} className="flex items-start gap-2 text-sm text-gray-200 bg-red-900/20 p-2 rounded">
+                          <AlertTriangle className="w-4 h-4 mt-0.5 text-red-400" />
+                          <span>{flag}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-gray-400 text-center py-4">
+                        {isStreaming ? "No suspicious behavior detected" : "Start camera to begin monitoring"}
+                      </p>
+                    )}
+                  </div>
+                </Card>
+              </>
+            ) : mode === "education" ? (
+              <>
+                <Card className={`p-4 border-2 ${
+                  educationMetrics.engagementLevel === "VERY HIGH" ? "border-green-500 bg-green-500/10" :
+                  educationMetrics.engagementLevel === "HIGH" ? "border-blue-500 bg-blue-500/10" :
+                  educationMetrics.engagementLevel === "MEDIUM" ? "border-yellow-500 bg-yellow-500/10" :
+                  "border-red-500 bg-red-500/10"
+                }`}>
+                  <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                    <GraduationCap className="w-5 h-5" />
+                    Engagement Monitor
+                  </h2>
+                  <div className="space-y-3">
+                    <div>
+                      <div className="text-3xl font-bold text-center" data-testid="engagement-level">
+                        {educationMetrics.engagementLevel}
+                      </div>
+                      <div className="text-sm text-center text-muted-foreground">
+                        Attention: {educationMetrics.attentionScore}%
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-4">
+                  <h2 className="text-lg font-semibold mb-3">Learning Metrics</h2>
+                  <div className="space-y-3">
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>Focus Quality</span>
+                        <span className="font-semibold">{educationMetrics.focusQuality}%</span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-2">
+                        <div className="h-2 rounded-full bg-blue-500" style={{ width: `${educationMetrics.focusQuality}%` }} />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>Learning Readiness</span>
+                        <span className="font-semibold">{educationMetrics.learningReadiness}%</span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-2">
+                        <div className="h-2 rounded-full bg-green-500" style={{ width: `${educationMetrics.learningReadiness}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-4 bg-green-950/30">
+                  <h2 className="text-lg font-semibold mb-3 text-green-400">Participation Indicators</h2>
+                  <div className="space-y-2">
+                    {educationMetrics.participationIndicators.length > 0 ? (
+                      educationMetrics.participationIndicators.map((indicator, index) => (
+                        <div key={index} className="flex items-start gap-2 text-sm text-green-200 bg-green-900/20 p-2 rounded">
+                          <Zap className="w-4 h-4 mt-0.5 text-green-400" />
+                          <span>{indicator}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-gray-400 text-center py-4">
+                        {isStreaming ? "Monitoring for participation..." : "Start camera to begin"}
+                      </p>
+                    )}
+                  </div>
+                </Card>
+
+                <Card className="p-4 bg-black/90 dark:bg-black/95">
+                  <h2 className="text-lg font-semibold mb-3 text-white">Distraction Alerts</h2>
+                  <div className="space-y-2">
+                    {educationMetrics.distractionFlags.length > 0 ? (
+                      educationMetrics.distractionFlags.map((flag, index) => (
+                        <div key={index} className="flex items-start gap-2 text-sm text-orange-200 bg-orange-900/20 p-2 rounded">
+                          <AlertTriangle className="w-4 h-4 mt-0.5 text-orange-400" />
+                          <span>{flag}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-gray-400 text-center py-4">
+                        No distractions detected
+                      </p>
+                    )}
+                  </div>
+                </Card>
+              </>
+            ) : mode === "interview" ? (
+              <>
+                <Card className={`p-4 border-2 ${
+                  interviewMetrics.professionalismLevel === "EXCELLENT" ? "border-green-500 bg-green-500/10" :
+                  interviewMetrics.professionalismLevel === "GOOD" ? "border-blue-500 bg-blue-500/10" :
+                  interviewMetrics.professionalismLevel === "FAIR" ? "border-yellow-500 bg-yellow-500/10" :
+                  "border-red-500 bg-red-500/10"
+                }`}>
+                  <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                    <Briefcase className="w-5 h-5" />
+                    Professional Assessment
+                  </h2>
+                  <div className="space-y-3">
+                    <div>
+                      <div className="text-3xl font-bold text-center" data-testid="professionalism-level">
+                        {interviewMetrics.professionalismLevel}
+                      </div>
+                      <div className="text-sm text-center text-muted-foreground">
+                        Overall Rating
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-4">
+                  <h2 className="text-lg font-semibold mb-3">Performance Metrics</h2>
+                  <div className="space-y-3">
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>Confidence</span>
+                        <span className="font-semibold">{interviewMetrics.confidenceScore}%</span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-2">
+                        <div className="h-2 rounded-full bg-blue-500" style={{ width: `${interviewMetrics.confidenceScore}%` }} />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>Energy Level</span>
+                        <span className="font-semibold">{interviewMetrics.energyLevel}%</span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-2">
+                        <div className="h-2 rounded-full bg-green-500" style={{ width: `${interviewMetrics.energyLevel}%` }} />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>Authenticity</span>
+                        <span className="font-semibold">{interviewMetrics.authenticityScore}%</span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-2">
+                        <div className="h-2 rounded-full bg-purple-500" style={{ width: `${interviewMetrics.authenticityScore}%` }} />
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>Communication Quality</span>
+                        <span className="font-semibold">{interviewMetrics.communicationQuality}%</span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-2">
+                        <div className="h-2 rounded-full bg-cyan-500" style={{ width: `${interviewMetrics.communicationQuality}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+
+                <Card className="p-4 bg-green-950/30">
+                  <h2 className="text-lg font-semibold mb-3 text-green-400">Strengths</h2>
+                  <div className="space-y-2">
+                    {interviewMetrics.bodyLanguageStrengths.length > 0 ? (
+                      interviewMetrics.bodyLanguageStrengths.map((strength, index) => (
+                        <div key={index} className="flex items-start gap-2 text-sm text-green-200 bg-green-900/20 p-2 rounded">
+                          <Zap className="w-4 h-4 mt-0.5 text-green-400" />
+                          <span>{strength}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-gray-400 text-center py-4">
+                        {isStreaming ? "Analyzing strengths..." : "Start camera to begin"}
+                      </p>
+                    )}
+                  </div>
+                </Card>
+
+                <Card className="p-4 bg-black/90 dark:bg-black/95">
+                  <h2 className="text-lg font-semibold mb-3 text-white">Improvement Areas</h2>
+                  <div className="space-y-2">
+                    {interviewMetrics.improvementAreas.length > 0 ? (
+                      interviewMetrics.improvementAreas.map((area, index) => (
+                        <div key={index} className="flex items-start gap-2 text-sm text-orange-200 bg-orange-900/20 p-2 rounded">
+                          <AlertTriangle className="w-4 h-4 mt-0.5 text-orange-400" />
+                          <span>{area}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-sm text-gray-400 text-center py-4">
+                        Excellent performance!
+                      </p>
+                    )}
+                  </div>
+                </Card>
+
+                {interviewMetrics.stressIndicators.length > 0 && (
+                  <Card className="p-4 bg-red-950/30">
+                    <h2 className="text-lg font-semibold mb-3 text-red-400">Stress Indicators</h2>
+                    <div className="space-y-2">
+                      {interviewMetrics.stressIndicators.map((indicator, index) => (
+                        <div key={index} className="flex items-start gap-2 text-sm text-red-200 bg-red-900/20 p-2 rounded">
+                          <AlertTriangle className="w-4 h-4 mt-0.5 text-red-400" />
+                          <span>{indicator}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                )}
+              </>
+            ) : mode === "decoder" ? (
               <>
                 <Card className="p-4 bg-gradient-to-br from-purple-600/20 to-blue-600/20 border-purple-500/30">
                   <h2 className="text-lg font-semibold mb-3">Current Action</h2>
