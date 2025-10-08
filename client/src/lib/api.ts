@@ -7,17 +7,37 @@ export async function analyzeFile(file: File): Promise<Analysis> {
   formData.append("file", file);
   formData.append("deviceId", getDeviceId());
 
-  const response = await fetch("/api/analyze", {
-    method: "POST",
-    body: formData,
-  });
+  console.log(`📤 Uploading ${file.name} for analysis (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || "Failed to analyze file");
+  // Create abort controller for timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 second timeout
+
+  try {
+    const response = await fetch("/api/analyze", {
+      method: "POST",
+      body: formData,
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Failed to analyze file");
+    }
+
+    const result = await response.json();
+    console.log(`✅ Analysis complete:`, result.id);
+    return result;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Analysis request timed out. Please try a smaller file.');
+    }
+    throw error;
   }
-
-  return response.json();
 }
 
 export async function getAnalysis(id: string): Promise<Analysis> {

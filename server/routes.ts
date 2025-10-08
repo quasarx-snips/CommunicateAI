@@ -47,8 +47,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { buffer, mimetype, originalname } = req.file;
       const deviceId = req.body.deviceId || 'unknown';
 
-      // Analyze with Gemini
-      const analysisResult = await analyzeBodyLanguage(buffer, mimetype, originalname);
+      console.log(`📸 Analyzing ${originalname} (${mimetype}) - Size: ${buffer.length} bytes`);
+
+      // Set a timeout for the analysis
+      const analysisPromise = analyzeBodyLanguage(buffer, mimetype, originalname);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Analysis timeout after 60 seconds')), 60000)
+      );
+
+      // Analyze with Gemini with timeout
+      const analysisResult = await Promise.race([analysisPromise, timeoutPromise]) as any;
+
+      console.log(`✅ Analysis complete for ${originalname}`);
 
       // Convert buffer to base64 for storage
       const fileUrl = `data:${mimetype};base64,${buffer.toString('base64')}`;
@@ -64,8 +74,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(analysis);
     } catch (error) {
-      console.error("Analysis error:", error);
-      res.status(500).json({ error: "Failed to analyze file" });
+      console.error("❌ Analysis error:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to analyze file";
+      res.status(500).json({ error: errorMessage });
     }
   });
 

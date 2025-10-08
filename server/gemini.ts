@@ -100,6 +100,8 @@ Provide specific, actionable feedback that candidates can immediately apply to i
 Analyze this ${mimeType.startsWith('image/') ? 'image' : mimeType.startsWith('video/') ? 'video' : 'audio'} for body language and communication patterns. Provide detailed, professional feedback.`,
     ];
 
+    console.log(`📤 Sending request to Gemini API...`);
+
     const response = await ai.models.generateContent({
       model: "gemini-2.0-flash-exp",
       config: {
@@ -166,21 +168,33 @@ Analyze this ${mimeType.startsWith('image/') ? 'image' : mimeType.startsWith('vi
     });
 
     const rawJson = response.text;
-    
+    console.log(`📥 Received response from Gemini API: ${rawJson}`);
+
     if (rawJson) {
       const data: AnalysisResult = JSON.parse(rawJson);
-      
+
+      // Validate and format data
+      if (!data || typeof data !== 'object' || !data.detections || !data.metrics) {
+        throw new Error("Invalid response structure from Gemini");
+      }
+
       // Ensure all percentage values are properly formatted (0-100)
-      data.detections = data.detections.map(d => ({
-        ...d,
-        value: d.value <= 1 ? Math.round(d.value * 100) : Math.round(d.value)
-      }));
-      
-      data.metrics = data.metrics.map(m => ({
-        ...m,
-        value: m.value <= 1 ? Math.round(m.value * 100) : Math.round(m.value)
-      }));
-      
+      data.detections = data.detections.map(d => {
+        if (typeof d.value !== 'number') throw new Error("Invalid detection value type");
+        return {
+          ...d,
+          value: d.value <= 1 ? Math.round(d.value * 100) : Math.round(d.value)
+        };
+      });
+
+      data.metrics = data.metrics.map(m => {
+        if (typeof m.value !== 'number') throw new Error("Invalid metric value type");
+        return {
+          ...m,
+          value: m.value <= 1 ? Math.round(m.value * 100) : Math.round(m.value)
+        };
+      });
+
       return data;
     } else {
       throw new Error("Empty response from Gemini");
@@ -232,6 +246,8 @@ The percentages for all emotions must sum to 100. Provide accurate, professional
 Analyze this image for facial expressions, emotions, and age. Provide precise emotion percentages that sum to 100.`,
     ];
 
+    console.log(`📤 Sending request to Gemini API...`);
+
     const response = await ai.models.generateContent({
       model: "gemini-2.0-flash-exp",
       config: {
@@ -263,9 +279,15 @@ Analyze this image for facial expressions, emotions, and age. Provide precise em
     });
 
     const rawJson = response.text;
-    
+    console.log(`📥 Received response from Gemini API: ${rawJson}`);
+
     if (rawJson) {
       const data = JSON.parse(rawJson);
+
+      // Validate response structure
+      if (!data || typeof data !== 'object' || !data.emotions || typeof data.emotions !== 'object' || typeof data.age !== 'number' || typeof data.gender !== 'string' || typeof data.faceDetected !== 'boolean') {
+        throw new Error("Invalid response structure from Gemini");
+      }
       
       // Ensure emotions are properly formatted as percentages (0-100)
       let emotions = {
@@ -277,7 +299,7 @@ Analyze this image for facial expressions, emotions, and age. Provide precise em
         fear: data.emotions.fear <= 1 ? data.emotions.fear * 100 : data.emotions.fear,
         sad: data.emotions.sad <= 1 ? data.emotions.sad * 100 : data.emotions.sad
       };
-      
+
       // Normalize emotions to sum to 100%
       const emotionSum = Object.values(emotions).reduce((sum, val) => sum + val, 0);
       if (emotionSum > 0) {
@@ -285,7 +307,7 @@ Analyze this image for facial expressions, emotions, and age. Provide precise em
           emotions[key as keyof typeof emotions] = Math.round((emotions[key as keyof typeof emotions] / emotionSum) * 100);
         });
       }
-      
+
       // Ensure exact sum of 100 by adjusting the highest emotion if needed
       const normalizedSum = Object.values(emotions).reduce((sum, val) => sum + val, 0);
       if (normalizedSum !== 100 && normalizedSum > 0) {
@@ -294,7 +316,7 @@ Analyze this image for facial expressions, emotions, and age. Provide precise em
         );
         emotions[maxEmotion.key as keyof typeof emotions] += (100 - normalizedSum);
       }
-      
+
       return {
         emotions,
         age: Math.round(data.age),

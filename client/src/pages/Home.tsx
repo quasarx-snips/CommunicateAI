@@ -20,13 +20,38 @@ export default function Home() {
 
   const handleFileAnalysis = async (file: File) => {
     setIsAnalyzing(true);
+    
+    // Create a timeout for the analysis
+    const timeoutId = setTimeout(() => {
+      toast({
+        title: "Analysis Taking Longer Than Expected",
+        description: "The analysis is still processing. Please wait or try a smaller file.",
+        variant: "default",
+      });
+    }, 10000); // Show message after 10 seconds
+    
     try {
       const analysis = await analyzeFile(file);
+      clearTimeout(timeoutId);
       setLocation(`/results/${analysis.id}`);
     } catch (error) {
+      clearTimeout(timeoutId);
+      console.error("Analysis error:", error);
+      
+      let errorMessage = "Failed to analyze file";
+      if (error instanceof Error) {
+        if (error.message.includes("timeout")) {
+          errorMessage = "Analysis timed out. Please try a smaller file or try again later.";
+        } else if (error.message.includes("GEMINI_API_KEY")) {
+          errorMessage = "API configuration error. Please contact support.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       toast({
         title: "Analysis Failed",
-        description: error instanceof Error ? error.message : "Failed to analyze file",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
