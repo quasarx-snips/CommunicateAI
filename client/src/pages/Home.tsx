@@ -107,19 +107,19 @@ export default function Home() {
                 Analyzing...
               </Button>
             ) : (
-              <UploadButton icon={Camera} label="Take Photo" onClick={handleTakePhoto} />
+              <UploadButton icon={Camera} label="Upload / Take Photo" onClick={handleTakePhoto} />
             )}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 max-w-md mx-auto">
             <UploadButton 
               icon={Video} 
-              label="Upload Video" 
+              label="Upload / Record Video" 
               onClick={handleUploadVideo}
               disabled={isAnalyzing}
             />
             <UploadButton 
               icon={Mic} 
-              label="Record Audio" 
+              label="Upload / Record Audio" 
               onClick={handleRecordAudio}
               disabled={isAnalyzing}
             />
