@@ -2397,18 +2397,18 @@ export default function LiveAnalysis() {
     const overlayCanvas = overlayCanvasRef.current;
 
     if (video.readyState === 4) {
-      // Set canvas dimensions to match the displayed video size for proper overlay alignment
-      const displayWidth = video.clientWidth;
-      const displayHeight = video.clientHeight;
+      // Match canvas to video's actual dimensions, not display size
+      const videoWidth = video.videoWidth;
+      const videoHeight = video.videoHeight;
 
-      if (overlayCanvas.width !== displayWidth || overlayCanvas.height !== displayHeight) {
-        overlayCanvas.width = displayWidth;
-        overlayCanvas.height = displayHeight;
+      if (overlayCanvas.width !== videoWidth || overlayCanvas.height !== videoHeight) {
+        overlayCanvas.width = videoWidth;
+        overlayCanvas.height = videoHeight;
       }
 
-      // Calculate scale factors for coordinate transformation
-      const scaleX = displayWidth / video.videoWidth;
-      const scaleY = displayHeight / video.videoHeight;
+      // No scaling needed - 1:1 mapping
+      const scaleX = 1;
+      const scaleY = 1;
 
       try {
         if (mode === "security" || mode === "education" || mode === "interview") {
@@ -2795,13 +2795,12 @@ export default function LiveAnalysis() {
                   autoPlay
                   playsInline
                   muted
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain"
                   data-testid="video-feed"
                 />
                 <canvas
                   ref={overlayCanvasRef}
-                  className="absolute inset-0 w-full h-full pointer-events-none z-10"
-                  style={{ imageRendering: 'auto' }}
+                  className="absolute inset-0 w-full h-full pointer-events-none z-10 object-contain"
                   data-testid="overlay-canvas"
                 />
                 <canvas ref={canvasRef} className="hidden" />
