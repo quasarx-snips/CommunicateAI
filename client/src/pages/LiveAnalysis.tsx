@@ -573,6 +573,181 @@ export default function LiveAnalysis() {
     return "Neutral";
   };
 
+  // ADVANCED FACE ANALYSIS HELPERS
+  const lastHeadPositionRef = useRef<{ x: number; y: number; z: number } | null>(null);
+  const headMovementHistoryRef = useRef<Array<{ vertical: number; horizontal: number }>>([]);
+  const eyeAspectRatioHistoryRef = useRef<number[]>([]);
+  const gazeHistoryRef = useRef<string[]>([]);
+
+  const analyzeHeadMovement = (landmarks: any): { nodding: boolean; shaking: boolean; tilt: number } => {
+    if (!landmarks || !landmarks.positions || landmarks.positions.length < 68) {
+      return { nodding: false, shaking: false, tilt: 0 };
+    }
+
+    const positions = landmarks.positions;
+    const nose = positions[30];
+    const leftEye = positions[36];
+    const rightEye = positions[45];
+
+    const currentHead = {
+      x: nose.x,
+      y: nose.y,
+      z: (leftEye.x + rightEye.x) / 2
+    };
+
+    if (lastHeadPositionRef.current) {
+      const verticalMovement = currentHead.y - lastHeadPositionRef.current.y;
+      const horizontalMovement = currentHead.x - lastHeadPositionRef.current.x;
+
+      headMovementHistoryRef.current.push({ vertical: verticalMovement, horizontal: horizontalMovement });
+      if (headMovementHistoryRef.current.length > 10) {
+        headMovementHistoryRef.current.shift();
+      }
+
+      if (headMovementHistoryRef.current.length >= 6) {
+        const recentVertical = headMovementHistoryRef.current.slice(-6);
+        const verticalChanges = recentVertical.filter((m, i) => {
+          if (i === 0) return false;
+          return (m.vertical > 0) !== (recentVertical[i - 1].vertical > 0);
+        }).length;
+        const nodding = verticalChanges >= 3 && Math.abs(recentVertical[recentVertical.length - 1].vertical) > 3;
+
+        const recentHorizontal = headMovementHistoryRef.current.slice(-6);
+        const horizontalChanges = recentHorizontal.filter((m, i) => {
+          if (i === 0) return false;
+          return (m.horizontal > 0) !== (recentHorizontal[i - 1].horizontal > 0);
+        }).length;
+        const shaking = horizontalChanges >= 3 && Math.abs(recentHorizontal[recentHorizontal.length - 1].horizontal) > 3;
+
+        const eyeY = (leftEye.y + rightEye.y) / 2;
+        const tilt = Math.atan2(rightEye.y - leftEye.y, rightEye.x - leftEye.x) * (180 / Math.PI);
+
+        lastHeadPositionRef.current = currentHead;
+        return { nodding, shaking, tilt };
+      }
+    }
+
+    lastHeadPositionRef.current = currentHead;
+    return { nodding: false, shaking: false, tilt: 0 };
+  };
+
+  const analyzeGazeDirection = (landmarks: any): string => {
+    if (!landmarks || !landmarks.positions || landmarks.positions.length < 68) {
+      return "center";
+    }
+
+    const positions = landmarks.positions;
+    const nose = positions[30];
+    const leftEye = positions[36];
+    const rightEye = positions[45];
+    const leftEyeInner = positions[39];
+    const rightEyeInner = positions[42];
+
+    const eyeCenter = { x: (leftEye.x + rightEye.x) / 2, y: (leftEye.y + rightEye.y) / 2 };
+    const faceCenter = { x: (leftEyeInner.x + rightEyeInner.x) / 2, y: nose.y };
+
+    const gazeOffsetX = nose.x - eyeCenter.x;
+    const gazeOffsetY = nose.y - eyeCenter.y;
+
+    let gaze = "center";
+    if (Math.abs(gazeOffsetX) > 15) {
+      gaze = gazeOffsetX > 0 ? "right" : "left";
+    }
+    if (Math.abs(gazeOffsetY) > 15) {
+      gaze = gazeOffsetY > 0 ? "down" : "up";
+    }
+
+    gazeHistoryRef.current.push(gaze);
+    if (gazeHistoryRef.current.length > 30) {
+      gazeHistoryRef.current.shift();
+    }
+
+    return gaze;
+  };
+
+  const calculateEyeAspectRatio = (landmarks: any): { left: number; right: number; average: number; blinking: boolean } => {
+    if (!landmarks || !landmarks.positions || landmarks.positions.length < 68) {
+      return { left: 0, right: 0, average: 0, blinking: false };
+    }
+
+    const positions = landmarks.positions;
+
+    const leftEyeVertical1 = Math.abs(positions[37].y - positions[41].y);
+    const leftEyeVertical2 = Math.abs(positions[38].y - positions[40].y);
+    const leftEyeHorizontal = Math.abs(positions[36].x - positions[39].x);
+    const leftEAR = (leftEyeVertical1 + leftEyeVertical2) / (2 * leftEyeHorizontal);
+
+    const rightEyeVertical1 = Math.abs(positions[43].y - positions[47].y);
+    const rightEyeVertical2 = Math.abs(positions[44].y - positions[46].y);
+    const rightEyeHorizontal = Math.abs(positions[42].x - positions[45].x);
+    const rightEAR = (rightEyeVertical1 + rightEyeVertical2) / (2 * rightEyeHorizontal);
+
+    const avgEAR = (leftEAR + rightEAR) / 2;
+
+    eyeAspectRatioHistoryRef.current.push(avgEAR);
+    if (eyeAspectRatioHistoryRef.current.length > 15) {
+      eyeAspectRatioHistoryRef.current.shift();
+    }
+
+    const blinking = avgEAR < 0.2 && eyeAspectRatioHistoryRef.current.length > 3;
+
+    return { left: leftEAR, right: rightEAR, average: avgEAR, blinking };
+  };
+
+  const analyzeMicroExpressions = (expressions: any): { fearScore: number; stressScore: number; authenticityScore: number } => {
+    if (!expressions) {
+      return { fearScore: 0, stressScore: 0, authenticityScore: 70 };
+    }
+
+    const fearScore = Math.round((expressions.fearful || 0) * 100);
+    const angerScore = Math.round((expressions.angry || 0) * 100);
+    const disgustScore = Math.round((expressions.disgusted || 0) * 100);
+    
+    const stressScore = Math.min(100, fearScore + angerScore + disgustScore);
+
+    const happyScore = Math.round((expressions.happy || 0) * 100);
+    const neutralScore = Math.round((expressions.neutral || 0) * 100);
+    const authenticityScore = Math.max(0, 100 - Math.abs(happyScore - 30) - Math.abs(neutralScore - 40));
+
+    return { fearScore, stressScore, authenticityScore };
+  };
+
+  const analyzeEnergyLevel = (keypoints: any[], expressions: any, headMovement: any): number => {
+    let energyLevel = 50;
+
+    const getKeypoint = (name: string) => keypoints.find((kp: any) => kp.name === name);
+    const leftWrist = getKeypoint("left_wrist");
+    const rightWrist = getKeypoint("right_wrist");
+    const leftShoulder = getKeypoint("left_shoulder");
+    const rightShoulder = getKeypoint("right_shoulder");
+
+    if (leftWrist && rightWrist && leftShoulder && rightShoulder) {
+      const wristMovement = lastPoseRef.current ? 
+        Math.sqrt(
+          Math.pow((leftWrist.x - (lastPoseRef.current.keypoints.find((k: any) => k.name === "left_wrist")?.x || leftWrist.x)), 2) +
+          Math.pow((rightWrist.x - (lastPoseRef.current.keypoints.find((k: any) => k.name === "right_wrist")?.x || rightWrist.x)), 2)
+        ) : 0;
+
+      if (wristMovement > 0.05) energyLevel += 20;
+
+      if (leftWrist.y < leftShoulder.y || rightWrist.y < rightShoulder.y) {
+        energyLevel += 15;
+      }
+    }
+
+    if (headMovement && headMovement.nodding) {
+      energyLevel += 10;
+    }
+
+    if (expressions) {
+      const happyScore = (expressions.happy || 0) * 100;
+      const surpriseScore = (expressions.surprised || 0) * 100;
+      energyLevel += Math.min(20, (happyScore + surpriseScore) / 10);
+    }
+
+    return Math.max(0, Math.min(100, energyLevel));
+  };
+
   // SECURITY MODE: Advanced Threat Detection & Behavioral Analysis
   const analyzeSecurityBehavior = (keypoints: any[], expressions?: any): SecurityMetrics => {
     const getKeypoint = (name: string) => keypoints.find((kp) => kp.name === name);
