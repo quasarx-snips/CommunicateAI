@@ -586,29 +586,43 @@ export default function LiveAnalysis() {
     const nose = getKeypoint("nose");
     const leftEye = getKeypoint("left_eye");
     const rightEye = getKeypoint("right_eye");
+    const leftElbow = getKeypoint("left_elbow");
+    const rightElbow = getKeypoint("right_elbow");
+    const leftKnee = getKeypoint("left_knee");
+    const rightKnee = getKeypoint("right_knee");
     
     const CONF = 0.5;
     let suspiciousScore = 0;
     const behaviorFlags: string[] = [];
     let anomalyDetected = false;
     
-    // 1. CONCEALMENT DETECTION - Hiding hands (common in suspicious behavior)
+    // 1. HAND CONCEALMENT & POSITIONING - Real-world threat indicator
     if (leftWrist && rightWrist && leftHip && rightHip) {
       const handsHidden = (leftWrist.score < 0.3 && rightWrist.score < 0.3);
       if (handsHidden) {
         suspiciousScore += 25;
-        behaviorFlags.push("Hands concealed - potential threat indicator");
+        behaviorFlags.push("Hands concealed - potential threat");
         anomalyDetected = true;
       }
       
-      // Hands in pockets or behind back
+      // Hands behind back or in pockets
       if (leftWrist.y > leftHip.y + 0.15 || rightWrist.y > rightHip.y + 0.15) {
         suspiciousScore += 15;
-        behaviorFlags.push("Hands positioned suspiciously low");
+        behaviorFlags.push("Hands hidden behind body");
+      }
+      
+      // Reaching/touching waistband (weapon access)
+      if (leftWrist && leftHip && leftWrist.score > CONF) {
+        const distToWaist = Math.sqrt(Math.pow(leftWrist.x - leftHip.x, 2) + Math.pow(leftWrist.y - leftHip.y, 2));
+        if (distToWaist < 0.12) {
+          suspiciousScore += 20;
+          behaviorFlags.push("Reaching toward waistband");
+          anomalyDetected = true;
+        }
       }
     }
     
-    // 2. EXCESSIVE MOVEMENT DETECTION - Fidgeting, nervousness
+    // 2. BODY MOVEMENT & FIDGETING - Nervousness indicators
     if (lastPoseRef.current && leftWrist && rightWrist) {
       const lastLeftWrist = lastPoseRef.current.keypoints.find((kp: any) => kp.name === "left_wrist");
       const lastRightWrist = lastPoseRef.current.keypoints.find((kp: any) => kp.name === "right_wrist");
@@ -619,12 +633,12 @@ export default function LiveAnalysis() {
         
         if (leftMovement > 0.12 || rightMovement > 0.12) {
           suspiciousScore += 10;
-          behaviorFlags.push("Excessive hand movement detected");
+          behaviorFlags.push("Excessive hand movement - nervousness");
         }
       }
     }
     
-    // 3. AGGRESSIVE POSTURE DETECTION
+    // 3. AGGRESSIVE STANCE - Shoulder expansion & posture
     if (leftShoulder && rightShoulder && leftHip && rightHip) {
       const shoulderWidth = Math.abs(leftShoulder.x - rightShoulder.x);
       const hipWidth = Math.abs(leftHip.x - rightHip.x);
@@ -632,40 +646,59 @@ export default function LiveAnalysis() {
       
       if (shoulderExpansion > 1.3) {
         suspiciousScore += 20;
-        behaviorFlags.push("Aggressive posture - expanded shoulders");
+        behaviorFlags.push("Aggressive posture - expanded stance");
         anomalyDetected = true;
+      }
+      
+      // Forward lean (approaching/confrontational)
+      const shoulderMid = { y: (leftShoulder.y + rightShoulder.y) / 2 };
+      const hipMid = { y: (leftHip.y + rightHip.y) / 2 };
+      if (nose && nose.y > shoulderMid.y + 0.08) {
+        suspiciousScore += 12;
+        behaviorFlags.push("Forward lean - confrontational");
       }
     }
     
-    // 4. FACE AVOIDANCE - Not looking at camera
+    // 4. EYE CONTACT & GAZE DIRECTION - Trust indicators
     if (nose && leftEye && rightEye && leftShoulder && rightShoulder) {
       const shoulderMid = { x: (leftShoulder.x + rightShoulder.x) / 2 };
       const faceDeviation = Math.abs(nose.x - shoulderMid.x);
       
       if (faceDeviation > 0.2) {
         suspiciousScore += 15;
-        behaviorFlags.push("Face turned away - avoiding detection");
+        behaviorFlags.push("Avoiding eye contact");
+      }
+      
+      // Head down (submission/hiding)
+      if (nose.y > leftShoulder.y + 0.1) {
+        suspiciousScore += 10;
+        behaviorFlags.push("Head down - evasive behavior");
       }
     }
     
-    // 5. EMOTION-BASED THREAT ASSESSMENT
+    // 5. FACIAL EXPRESSIONS - Emotional state analysis
     if (expressions) {
       if (expressions.angry > 0.6) {
         suspiciousScore += 25;
-        behaviorFlags.push("High anger detected");
+        behaviorFlags.push("High anger - aggression risk");
         anomalyDetected = true;
       }
       if (expressions.fear > 0.5) {
         suspiciousScore += 15;
-        behaviorFlags.push("Fear response detected");
+        behaviorFlags.push("Fear detected - possible threat response");
       }
       if (expressions.disgust > 0.5) {
         suspiciousScore += 10;
-        behaviorFlags.push("Contempt/disgust detected");
+        behaviorFlags.push("Contempt expression detected");
+      }
+      // Lack of natural expression (overly controlled)
+      if (expressions.neutral > 0.85) {
+        suspiciousScore += 12;
+        behaviorFlags.push("Emotionally flat - deceptive behavior");
       }
     }
     
-    // 6. PACING/REPETITIVE MOVEMENT
+    // 6. MOVEMENT PATTERNS - Pacing, scanning, restlessness
     if (leftHip && rightHip && lastPoseRef.current) {
       const lastLeftHip = lastPoseRef.current.keypoints.find((kp: any) => kp.name === "left_hip");
       const lastRightHip = lastPoseRef.current.keypoints.find((kp: any) => kp.name === "right_hip");
@@ -677,8 +710,28 @@ export default function LiveAnalysis() {
         
         if (bodyMovement > 0.08) {
           suspiciousScore += 8;
-          behaviorFlags.push("Pacing or restless movement");
+          behaviorFlags.push("Pacing - heightened alertness");
         }
+      }
+    }
+    
+    // 7. WEIGHT SHIFTING - Preparation for action
+    if (leftKnee && rightKnee && leftHip && rightHip) {
+      const leftLegBend = Math.abs(leftKnee.y - leftHip.y);
+      const rightLegBend = Math.abs(rightKnee.y - rightHip.y);
+      const asymmetry = Math.abs(leftLegBend - rightLegBend);
+      
+      if (asymmetry > 0.15) {
+        suspiciousScore += 8;
+        behaviorFlags.push("Weight shifting - ready position");
+      }
+    }
+    
+    // 8. ARM CROSSING - Defensive barrier
+    if (leftWrist && rightWrist && leftShoulder && rightShoulder) {
+      if (leftWrist.x > rightShoulder.x && rightWrist.x < leftShoulder.x) {
+        suspiciousScore += 10;
+        behaviorFlags.push("Arms crossed - defensive posture");
       }
     }
     
@@ -688,19 +741,14 @@ export default function LiveAnalysis() {
     else if (suspiciousScore > 50) threatLevel = "WARNING";
     else if (suspiciousScore > 25) threatLevel = "CAUTION";
     
-    // Calculate attention level (inverse of distraction)
     const attentionLevel = Math.max(0, 100 - suspiciousScore);
-    
-    // Calculate fidgeting score
     const fidgetingScore = Math.min(100, suspiciousScore);
-    
-    // Calculate posture deviation
     const postureDeviation = Math.min(100, suspiciousScore * 0.8);
     
     return {
       threatLevel,
       suspiciousScore: Math.min(100, suspiciousScore),
-      behaviorFlags: behaviorFlags.slice(0, 5),
+      behaviorFlags: behaviorFlags.slice(0, 6),
       anomalyDetected,
       attentionLevel,
       fidgetingScore,
@@ -721,51 +769,83 @@ export default function LiveAnalysis() {
     const rightWrist = getKeypoint("right_wrist");
     const leftHip = getKeypoint("left_hip");
     const rightHip = getKeypoint("right_hip");
+    const leftElbow = getKeypoint("left_elbow");
+    const rightElbow = getKeypoint("right_elbow");
     
     const CONF = 0.5;
     let attentionScore = 100;
     const distractionFlags: string[] = [];
     const participationIndicators: string[] = [];
     
-    // 1. FACE DIRECTION - Is student looking at screen/teacher?
+    // 1. EYE CONTACT & GAZE DIRECTION - Focus on material
     if (nose && leftEye && rightEye && leftShoulder && rightShoulder) {
       const shoulderMid = { x: (leftShoulder.x + rightShoulder.x) / 2 };
       const faceDeviation = Math.abs(nose.x - shoulderMid.x);
       
       if (faceDeviation > 0.15) {
         attentionScore -= 25;
-        distractionFlags.push("Looking away from focus point");
+        distractionFlags.push("Looking away from screen");
       } else {
-        participationIndicators.push("Maintaining eye contact");
+        participationIndicators.push("Focused on material");
       }
-    }
-    
-    // 2. HEAD POSITION - Slouching indicates low engagement
-    if (nose && leftShoulder && rightShoulder) {
-      const shoulderMid = { y: (leftShoulder.y + rightShoulder.y) / 2 };
-      const headDrop = nose.y - shoulderMid.y;
       
-      if (headDrop > 0.15) {
+      // Eye level check (looking down at phone/notes)
+      if (nose.y > leftShoulder.y + 0.12) {
         attentionScore -= 20;
         distractionFlags.push("Head down - possible distraction");
       }
     }
     
-    // 3. HAND ACTIVITY - Writing, raising hand, or distracted?
+    // 2. NODDING & HEAD MOVEMENT - Acknowledgment and understanding
+    if (nose && lastPoseRef.current) {
+      const lastNose = lastPoseRef.current.keypoints.find((kp: any) => kp.name === "nose");
+      if (lastNose && nose.score > 0.6) {
+        const verticalMovement = Math.abs(nose.y - lastNose.y);
+        // Nodding (vertical head movement)
+        if (verticalMovement > 0.05 && verticalMovement < 0.15) {
+          attentionScore = Math.min(100, attentionScore + 10);
+          participationIndicators.push("Nodding - showing understanding");
+        }
+        // Excessive head shaking (confusion/disagreement)
+        const horizontalMovement = Math.abs(nose.x - lastNose.x);
+        if (horizontalMovement > 0.1) {
+          attentionScore -= 8;
+          distractionFlags.push("Head shaking - possible confusion");
+        }
+      }
+    }
+    
+    // 3. HAND GESTURES - Writing, raising hand, or distracted?
     if (leftWrist && rightWrist && leftShoulder && rightShoulder) {
       // Hand raised (participation)
       if (rightWrist.y < rightShoulder.y - 0.15 || leftWrist.y < leftShoulder.y - 0.15) {
         attentionScore = Math.min(100, attentionScore + 20);
-        participationIndicators.push("Hand raised - active participation");
+        participationIndicators.push("Hand raised - actively participating");
       }
       
-      // Hands on face (distraction/boredom)
+      // Note-taking position (hands in front, writing)
+      if (leftElbow && rightElbow && leftWrist.score > CONF && rightWrist.score > CONF) {
+        const handsInFront = leftWrist.y > leftElbow.y && rightWrist.y > rightElbow.y;
+        const closeToBody = Math.abs(leftWrist.x - rightWrist.x) < 0.3;
+        if (handsInFront && closeToBody) {
+          attentionScore = Math.min(100, attentionScore + 15);
+          participationIndicators.push("Taking notes - engaged");
+        }
+      }
+      
+      // Hands on face (boredom/tiredness)
       if (nose && rightWrist.score > CONF) {
         const distance = Math.sqrt(Math.pow(nose.x - rightWrist.x, 2) + Math.pow(nose.y - rightWrist.y, 2));
         if (distance < 0.15) {
           attentionScore -= 15;
-          distractionFlags.push("Hand on face - loss of focus");
+          distractionFlags.push("Hand on face - losing focus");
         }
+      }
+      
+      // Hands below desk level (phone usage)
+      if (leftHip && rightHip && leftWrist.y > leftHip.y && rightWrist.y > rightHip.y) {
+        attentionScore -= 20;
+        distractionFlags.push("Hands below desk - possible device use");
       }
     }
     
@@ -1295,8 +1375,12 @@ export default function LiveAnalysis() {
     
     const color = threatColors[metrics.threatLevel];
 
-    // Skeletal connections
+    // Complete skeletal connections including head
     const connections = [
+      ["nose", "left_eye"],
+      ["nose", "right_eye"],
+      ["left_eye", "left_ear"],
+      ["right_eye", "right_ear"],
       ["left_shoulder", "right_shoulder"],
       ["left_shoulder", "left_elbow"],
       ["right_shoulder", "right_elbow"],
@@ -1305,6 +1389,10 @@ export default function LiveAnalysis() {
       ["left_shoulder", "left_hip"],
       ["right_shoulder", "right_hip"],
       ["left_hip", "right_hip"],
+      ["left_hip", "left_knee"],
+      ["right_hip", "right_knee"],
+      ["left_knee", "left_ankle"],
+      ["right_knee", "right_ankle"],
     ];
 
     connections.forEach(([start, end]) => {
@@ -1312,17 +1400,68 @@ export default function LiveAnalysis() {
       const endKp = keypoints.find((kp: any) => kp.name === end);
 
       if (startKp && endKp && startKp.score > 0.4 && endKp.score > 0.4) {
+        const gradient = ctx.createLinearGradient(startKp.x, startKp.y, endKp.x, endKp.y);
+        gradient.addColorStop(0, color);
+        gradient.addColorStop(1, color.replace('0.9', '0.6'));
+        
         ctx.shadowBlur = 15;
         ctx.shadowColor = color;
         ctx.beginPath();
         ctx.moveTo(startKp.x, startKp.y);
         ctx.lineTo(endKp.x, endKp.y);
-        ctx.strokeStyle = color;
+        ctx.strokeStyle = gradient;
         ctx.lineWidth = 4;
         ctx.stroke();
         ctx.shadowBlur = 0;
       }
     });
+
+    // Draw keypoints
+    keypoints.forEach((kp: any) => {
+      if (kp.score > 0.4) {
+        ctx.beginPath();
+        ctx.arc(kp.x, kp.y, 6, 0, 2 * Math.PI);
+        ctx.fillStyle = color;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = color;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+    });
+
+    // Face bounding box
+    const getKeypoint = (name: string) => keypoints.find((kp: any) => kp.name === name);
+    const nose = getKeypoint("nose");
+    const leftEye = getKeypoint("left_eye");
+    const rightEye = getKeypoint("right_eye");
+    const leftEar = getKeypoint("left_ear");
+    const rightEar = getKeypoint("right_ear");
+
+    const facePoints = [nose, leftEye, rightEye, leftEar, rightEar].filter(kp => kp && kp.score > 0.5);
+
+    if (facePoints.length >= 3) {
+      const faceXs = facePoints.map((kp: any) => kp.x);
+      const faceYs = facePoints.map((kp: any) => kp.y);
+      const minX = Math.min(...faceXs);
+      const maxX = Math.max(...faceXs);
+      const minY = Math.min(...faceYs);
+      const maxY = Math.max(...faceYs);
+
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+      const width = (maxX - minX) * 2.2;
+      const height = (maxY - minY) * 2.4;
+
+      const boxX = centerX - width / 2;
+      const boxY = centerY - height / 2;
+      
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = color;
+      ctx.strokeRect(boxX, boxY, width, height);
+      ctx.shadowBlur = 0;
+    }
 
     // Threat level indicator
     const threatText = `${metrics.threatLevel} - ${metrics.suspiciousScore}%`;
@@ -1333,7 +1472,6 @@ export default function LiveAnalysis() {
     const textX = canvas.width / 2;
     const textY = 50;
 
-    // Background
     ctx.fillStyle = color;
     ctx.shadowBlur = 20;
     ctx.shadowColor = color;
@@ -1342,7 +1480,6 @@ export default function LiveAnalysis() {
     ctx.fill();
     ctx.shadowBlur = 0;
 
-    // Text
     ctx.fillStyle = "white";
     ctx.fillText(threatText, textX, textY);
   };
@@ -1367,15 +1504,24 @@ export default function LiveAnalysis() {
     
     const color = engagementColors[metrics.engagementLevel];
 
-    // Skeletal visualization
+    // Complete skeletal visualization
     const connections = [
       ["nose", "left_eye"],
       ["nose", "right_eye"],
+      ["left_eye", "left_ear"],
+      ["right_eye", "right_ear"],
       ["left_shoulder", "right_shoulder"],
       ["left_shoulder", "left_elbow"],
       ["right_shoulder", "right_elbow"],
       ["left_elbow", "left_wrist"],
       ["right_elbow", "right_wrist"],
+      ["left_shoulder", "left_hip"],
+      ["right_shoulder", "right_hip"],
+      ["left_hip", "right_hip"],
+      ["left_hip", "left_knee"],
+      ["right_hip", "right_knee"],
+      ["left_knee", "left_ankle"],
+      ["right_knee", "right_ankle"],
     ];
 
     connections.forEach(([start, end]) => {
@@ -1383,17 +1529,68 @@ export default function LiveAnalysis() {
       const endKp = keypoints.find((kp: any) => kp.name === end);
 
       if (startKp && endKp && startKp.score > 0.4 && endKp.score > 0.4) {
+        const gradient = ctx.createLinearGradient(startKp.x, startKp.y, endKp.x, endKp.y);
+        gradient.addColorStop(0, color);
+        gradient.addColorStop(1, color.replace('0.9', '0.6'));
+        
         ctx.shadowBlur = 12;
         ctx.shadowColor = color;
         ctx.beginPath();
         ctx.moveTo(startKp.x, startKp.y);
         ctx.lineTo(endKp.x, endKp.y);
-        ctx.strokeStyle = color;
+        ctx.strokeStyle = gradient;
         ctx.lineWidth = 3;
         ctx.stroke();
         ctx.shadowBlur = 0;
       }
     });
+
+    // Draw keypoints
+    keypoints.forEach((kp: any) => {
+      if (kp.score > 0.4) {
+        ctx.beginPath();
+        ctx.arc(kp.x, kp.y, 6, 0, 2 * Math.PI);
+        ctx.fillStyle = color;
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = color;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+    });
+
+    // Face bounding box
+    const getKeypoint = (name: string) => keypoints.find((kp: any) => kp.name === name);
+    const nose = getKeypoint("nose");
+    const leftEye = getKeypoint("left_eye");
+    const rightEye = getKeypoint("right_eye");
+    const leftEar = getKeypoint("left_ear");
+    const rightEar = getKeypoint("right_ear");
+
+    const facePoints = [nose, leftEye, rightEye, leftEar, rightEar].filter(kp => kp && kp.score > 0.5);
+
+    if (facePoints.length >= 3) {
+      const faceXs = facePoints.map((kp: any) => kp.x);
+      const faceYs = facePoints.map((kp: any) => kp.y);
+      const minX = Math.min(...faceXs);
+      const maxX = Math.max(...faceXs);
+      const minY = Math.min(...faceYs);
+      const maxY = Math.max(...faceYs);
+
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+      const width = (maxX - minX) * 2.2;
+      const height = (maxY - minY) * 2.4;
+
+      const boxX = centerX - width / 2;
+      const boxY = centerY - height / 2;
+      
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = color;
+      ctx.strokeRect(boxX, boxY, width, height);
+      ctx.shadowBlur = 0;
+    }
 
     // Attention score display
     const scoreText = `${metrics.engagementLevel} - ${metrics.attentionScore}%`;
