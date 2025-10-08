@@ -6,24 +6,24 @@ interface MetricBarProps {
 
 const colorStyles = {
   green: {
-    bar: "bg-gradient-to-r from-green-500 via-green-500 to-emerald-500",
-    glow: "shadow-[0_0_12px_rgba(34,197,94,0.4)]",
-    text: "text-green-600 dark:text-green-400",
+    bar: "bg-gradient-to-r from-green-600 via-green-500 to-emerald-600",
+    glow: "shadow-[0_0_16px_rgba(34,197,94,0.5)]",
+    text: "text-green-700 dark:text-green-300 font-semibold",
   },
   blue: {
-    bar: "bg-gradient-to-r from-blue-500 via-blue-500 to-cyan-500",
-    glow: "shadow-[0_0_12px_rgba(59,130,246,0.4)]",
-    text: "text-blue-600 dark:text-blue-400",
+    bar: "bg-gradient-to-r from-blue-600 via-blue-500 to-cyan-600",
+    glow: "shadow-[0_0_16px_rgba(59,130,246,0.5)]",
+    text: "text-blue-700 dark:text-blue-300 font-semibold",
   },
   orange: {
-    bar: "bg-gradient-to-r from-orange-500 via-orange-500 to-amber-500",
-    glow: "shadow-[0_0_12px_rgba(249,115,22,0.4)]",
-    text: "text-orange-600 dark:text-orange-400",
+    bar: "bg-gradient-to-r from-orange-600 via-orange-500 to-amber-600",
+    glow: "shadow-[0_0_16px_rgba(249,115,22,0.5)]",
+    text: "text-orange-700 dark:text-orange-300 font-semibold",
   },
   red: {
-    bar: "bg-gradient-to-r from-red-500 via-red-500 to-rose-500",
-    glow: "shadow-[0_0_12px_rgba(239,68,68,0.4)]",
-    text: "text-red-600 dark:text-red-400",
+    bar: "bg-gradient-to-r from-red-600 via-red-500 to-rose-600",
+    glow: "shadow-[0_0_16px_rgba(239,68,68,0.5)]",
+    text: "text-red-700 dark:text-red-300 font-semibold",
   },
 };
 

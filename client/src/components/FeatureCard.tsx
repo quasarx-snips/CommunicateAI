@@ -8,24 +8,24 @@ interface FeatureCardProps {
 
 const colorStyles = {
   green: {
-    light: "from-green-50 to-green-100/50 border-green-200",
-    dark: "from-green-950/40 to-green-900/20 border-green-800/30",
-    icon: "bg-green-500/10 text-green-600 dark:bg-green-500/20 dark:text-green-400",
+    light: "from-green-50 to-green-100/70 border-green-300",
+    dark: "from-green-950/50 to-green-900/30 border-green-700/40",
+    icon: "bg-green-500/15 text-green-700 dark:bg-green-500/25 dark:text-green-300 shadow-sm",
   },
   blue: {
-    light: "from-blue-50 to-blue-100/50 border-blue-200",
-    dark: "from-blue-950/40 to-blue-900/20 border-blue-800/30",
-    icon: "bg-blue-500/10 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400",
+    light: "from-blue-50 to-blue-100/70 border-blue-300",
+    dark: "from-blue-950/50 to-blue-900/30 border-blue-700/40",
+    icon: "bg-blue-500/15 text-blue-700 dark:bg-blue-500/25 dark:text-blue-300 shadow-sm",
   },
   orange: {
-    light: "from-orange-50 to-orange-100/50 border-orange-200",
-    dark: "from-orange-950/40 to-orange-900/20 border-orange-800/30",
-    icon: "bg-orange-500/10 text-orange-600 dark:bg-orange-500/20 dark:text-orange-400",
+    light: "from-orange-50 to-orange-100/70 border-orange-300",
+    dark: "from-orange-950/50 to-orange-900/30 border-orange-700/40",
+    icon: "bg-orange-500/15 text-orange-700 dark:bg-orange-500/25 dark:text-orange-300 shadow-sm",
   },
   purple: {
-    light: "from-purple-50 to-purple-100/50 border-purple-200",
-    dark: "from-purple-950/40 to-purple-900/20 border-purple-800/30",
-    icon: "bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400",
+    light: "from-purple-50 to-purple-100/70 border-purple-300",
+    dark: "from-purple-950/50 to-purple-900/30 border-purple-700/40",
+    icon: "bg-purple-500/15 text-purple-700 dark:bg-purple-500/25 dark:text-purple-300 shadow-sm",
   },
 };
 
