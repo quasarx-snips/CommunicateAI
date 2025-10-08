@@ -63,7 +63,7 @@ export default function LiveAnalysis() {
   const [fps, setFps] = useState(0);
   const [detectorReady, setDetectorReady] = useState(false);
   const [faceDetectorReady, setFaceDetectorReady] = useState(false);
-  
+
   // Security Mode State
   const [securityMetrics, setSecurityMetrics] = useState<SecurityMetrics>({
     threatLevel: "SAFE",
@@ -74,7 +74,7 @@ export default function LiveAnalysis() {
     fidgetingScore: 0,
     postureDeviation: 0
   });
-  
+
   // Education Mode State
   const [educationMetrics, setEducationMetrics] = useState<EducationMetrics>({
     attentionScore: 0,
@@ -84,7 +84,7 @@ export default function LiveAnalysis() {
     participationIndicators: [],
     learningReadiness: 0
   });
-  
+
   // Interview Mode State
   const [interviewMetrics, setInterviewMetrics] = useState<InterviewMetrics>({
     confidenceScore: 0,
@@ -96,7 +96,7 @@ export default function LiveAnalysis() {
     bodyLanguageStrengths: [],
     improvementAreas: []
   });
-  
+
   const [currentGesture, setCurrentGesture] = useState<string>("Neutral");
   const [currentAdjective, setCurrentAdjective] = useState<string>("Neutral");
   const [composureScore, setComposureScore] = useState<number>(0);
@@ -124,7 +124,7 @@ export default function LiveAnalysis() {
   const emotionIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastFrameTimeRef = useRef<number>(0);
   const frameCountRef = useRef<number>(0);
-  
+
   // Smoothing and stability refs
   const metricsHistoryRef = useRef<Array<{ label: string; value: number; color: string }[]>>([]);
   const scoreHistoryRef = useRef<number[]>([]);
@@ -134,7 +134,7 @@ export default function LiveAnalysis() {
   const lastDecodedActionRef = useRef<string>("");
   const decodingHistoryRef = useRef<string[]>([]);
   const lastPoseRef = useRef<any>(null);
-  
+
   const { toast } = useToast();
 
   // Smoothing function with exponential moving average
@@ -143,7 +143,7 @@ export default function LiveAnalysis() {
   ): { label: string; value: number; color: string }[] => {
     const HISTORY_SIZE = 5; // Keep last 5 frames
     const SMOOTHING_FACTOR = 0.3; // Weight for new value (0.3 = 30% new, 70% old)
-    
+
     metricsHistoryRef.current.push(newMetrics);
     if (metricsHistoryRef.current.length > HISTORY_SIZE) {
       metricsHistoryRef.current.shift();
@@ -182,7 +182,7 @@ export default function LiveAnalysis() {
   // Smooth composure score with hysteresis
   const smoothComposureScore = (newScore: number): number => {
     const SCORE_HISTORY_SIZE = 8;
-    
+
     scoreHistoryRef.current.push(newScore);
     if (scoreHistoryRef.current.length > SCORE_HISTORY_SIZE) {
       scoreHistoryRef.current.shift();
@@ -202,15 +202,15 @@ export default function LiveAnalysis() {
   // Stable adjective selection with hysteresis
   const getStableAdjective = (score: number): { adjective: string; isStable: boolean } => {
     const CHANGE_THRESHOLD = 10; // Only change if score differs by 10+ points
-    
+
     const scoreDiff = Math.abs(score - adjectiveStableRef.current.score);
-    
+
     if (scoreDiff >= CHANGE_THRESHOLD || adjectiveStableRef.current.adjective === "Neutral") {
       const newAdjective = getComposureAdjective(score);
       adjectiveStableRef.current = { adjective: newAdjective, score };
       return { adjective: newAdjective, isStable: false };
     }
-    
+
     return { adjective: adjectiveStableRef.current.adjective, isStable: true };
   };
 
@@ -218,7 +218,7 @@ export default function LiveAnalysis() {
   const smoothFaceBox = (newBox: { x: number; y: number; width: number; height: number }) => {
     const BOX_HISTORY_SIZE = 4;
     const SMOOTHING_WEIGHT = 0.4; // Higher weight = more responsive, lower = smoother
-    
+
     faceBoxHistoryRef.current.push(newBox);
     if (faceBoxHistoryRef.current.length > BOX_HISTORY_SIZE) {
       faceBoxHistoryRef.current.shift();
@@ -231,7 +231,7 @@ export default function LiveAnalysis() {
     // Calculate weighted average for each dimension
     let smoothedBox = { ...newBox };
     const history = faceBoxHistoryRef.current;
-    
+
     ['x', 'y', 'width', 'height'].forEach((key) => {
       let value = history[history.length - 1][key as keyof typeof newBox];
       for (let i = history.length - 2; i >= 0; i--) {
@@ -261,7 +261,7 @@ export default function LiveAnalysis() {
       console.log('⏳ Pose detector not cached, initializing...');
       await modelLoader.initialize();
       detectorRef.current = modelLoader.getPoseDetector();
-      
+
       if (detectorRef.current) {
         setDetectorReady(true);
         setIsLoading(false);
@@ -299,7 +299,7 @@ export default function LiveAnalysis() {
       // Fallback: initialize if not cached
       console.log('⏳ Face-API not cached, initializing...');
       await modelLoader.initialize();
-      
+
       if (modelLoader.isFaceAPILoaded()) {
         faceApiLoadedRef.current = true;
         setFaceDetectorReady(true);
@@ -327,7 +327,7 @@ export default function LiveAnalysis() {
 
     // Higher confidence threshold for more stable readings
     const CONFIDENCE_THRESHOLD = 0.5;
-    
+
     const leftShoulder = getKeypoint("left_shoulder");
     const rightShoulder = getKeypoint("right_shoulder");
     const nose = getKeypoint("nose");
@@ -345,10 +345,10 @@ export default function LiveAnalysis() {
     if (leftShoulder && rightShoulder && leftHip && rightHip && 
         leftShoulder.score > CONFIDENCE_THRESHOLD && rightShoulder.score > CONFIDENCE_THRESHOLD && 
         leftHip.score > CONFIDENCE_THRESHOLD && rightHip.score > CONFIDENCE_THRESHOLD) {
-      
+
       const shoulderMid = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
       const hipMid = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
-      
+
       // Normalized spinal deviation (relative to body size)
       const bodyHeight = Math.abs(shoulderMid.y - hipMid.y);
       const spineDeviation = Math.abs(shoulderMid.x - hipMid.x);
@@ -406,7 +406,7 @@ export default function LiveAnalysis() {
     if (nose && leftEye && rightEye && nose.score > 0.6 && leftEye.score > 0.6 && rightEye.score > 0.6) {
       const eyeCenter = { x: (leftEye.x + rightEye.x) / 2, y: (leftEye.y + rightEye.y) / 2 };
       const eyeDistance = Math.abs(leftEye.x - rightEye.x);
-      
+
       // Normalized head tilt (relative to eye distance)
       const headTilt = Math.abs(nose.x - eyeCenter.x);
       const normalizedTilt = eyeDistance > 0 ? headTilt / eyeDistance : 0;
@@ -446,10 +446,10 @@ export default function LiveAnalysis() {
     if (leftShoulder && rightShoulder && leftHip && rightHip && nose &&
         leftShoulder.score > CONFIDENCE_THRESHOLD && rightShoulder.score > CONFIDENCE_THRESHOLD && 
         leftHip.score > CONFIDENCE_THRESHOLD && rightHip.score > CONFIDENCE_THRESHOLD && nose.score > 0.6) {
-      
+
       const shoulderMid = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
       const hipMid = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
-      
+
       // More accurate uprightness calculation
       const verticalDistance = Math.abs(shoulderMid.y - hipMid.y);
       const horizontalDistance = Math.abs(shoulderMid.x - hipMid.x);
@@ -702,7 +702,7 @@ export default function LiveAnalysis() {
     const fearScore = Math.round((expressions.fearful || 0) * 100);
     const angerScore = Math.round((expressions.angry || 0) * 100);
     const disgustScore = Math.round((expressions.disgusted || 0) * 100);
-    
+
     const stressScore = Math.min(100, fearScore + angerScore + disgustScore);
 
     const happyScore = Math.round((expressions.happy || 0) * 100);
@@ -751,7 +751,7 @@ export default function LiveAnalysis() {
   // SECURITY MODE: Advanced Threat Detection & Behavioral Analysis
   const analyzeSecurityBehavior = (keypoints: any[], expressions?: any, faceLandmarks?: any): SecurityMetrics => {
     const getKeypoint = (name: string) => keypoints.find((kp) => kp.name === name);
-    
+
     const leftWrist = getKeypoint("left_wrist");
     const rightWrist = getKeypoint("right_wrist");
     const leftShoulder = getKeypoint("left_shoulder");
@@ -765,12 +765,12 @@ export default function LiveAnalysis() {
     const rightElbow = getKeypoint("right_elbow");
     const leftKnee = getKeypoint("left_knee");
     const rightKnee = getKeypoint("right_knee");
-    
+
     const CONF = 0.5;
     let suspiciousScore = 0;
     const behaviorFlags: string[] = [];
     let anomalyDetected = false;
-    
+
     // 1. HAND CONCEALMENT & POSITIONING - Real-world threat indicator
     if (leftWrist && rightWrist && leftHip && rightHip) {
       const handsHidden = (leftWrist.score < 0.3 && rightWrist.score < 0.3);
@@ -779,13 +779,13 @@ export default function LiveAnalysis() {
         behaviorFlags.push("Hands concealed - potential threat");
         anomalyDetected = true;
       }
-      
+
       // Hands behind back or in pockets
       if (leftWrist.y > leftHip.y + 0.15 || rightWrist.y > rightHip.y + 0.15) {
         suspiciousScore += 15;
         behaviorFlags.push("Hands hidden behind body");
       }
-      
+
       // Reaching/touching waistband (weapon access)
       if (leftWrist && leftHip && leftWrist.score > CONF) {
         const distToWaist = Math.sqrt(Math.pow(leftWrist.x - leftHip.x, 2) + Math.pow(leftWrist.y - leftHip.y, 2));
@@ -796,35 +796,35 @@ export default function LiveAnalysis() {
         }
       }
     }
-    
+
     // 2. BODY MOVEMENT & FIDGETING - Nervousness indicators
     if (lastPoseRef.current && leftWrist && rightWrist) {
       const lastLeftWrist = lastPoseRef.current.keypoints.find((kp: any) => kp.name === "left_wrist");
       const lastRightWrist = lastPoseRef.current.keypoints.find((kp: any) => kp.name === "right_wrist");
-      
+
       if (lastLeftWrist && lastRightWrist) {
         const leftMovement = Math.sqrt(Math.pow(leftWrist.x - lastLeftWrist.x, 2) + Math.pow(leftWrist.y - lastLeftWrist.y, 2));
         const rightMovement = Math.sqrt(Math.pow(rightWrist.x - lastRightWrist.x, 2) + Math.pow(rightWrist.y - lastRightWrist.y, 2));
-        
+
         if (leftMovement > 0.12 || rightMovement > 0.12) {
           suspiciousScore += 10;
           behaviorFlags.push("Excessive hand movement - nervousness");
         }
       }
     }
-    
+
     // 3. AGGRESSIVE STANCE - Shoulder expansion & posture
     if (leftShoulder && rightShoulder && leftHip && rightHip) {
       const shoulderWidth = Math.abs(leftShoulder.x - rightShoulder.x);
       const hipWidth = Math.abs(leftHip.x - rightHip.x);
       const shoulderExpansion = shoulderWidth / hipWidth;
-      
+
       if (shoulderExpansion > 1.3) {
         suspiciousScore += 20;
         behaviorFlags.push("Aggressive posture - expanded stance");
         anomalyDetected = true;
       }
-      
+
       // Forward lean (approaching/confrontational)
       const shoulderMid = { y: (leftShoulder.y + rightShoulder.y) / 2 };
       const hipMid = { y: (leftHip.y + rightHip.y) / 2 };
@@ -833,24 +833,24 @@ export default function LiveAnalysis() {
         behaviorFlags.push("Forward lean - confrontational");
       }
     }
-    
+
     // 4. EYE CONTACT & GAZE DIRECTION - Trust indicators
     if (nose && leftEye && rightEye && leftShoulder && rightShoulder) {
       const shoulderMid = { x: (leftShoulder.x + rightShoulder.x) / 2 };
       const faceDeviation = Math.abs(nose.x - shoulderMid.x);
-      
+
       if (faceDeviation > 0.2) {
         suspiciousScore += 15;
         behaviorFlags.push("Avoiding eye contact");
       }
-      
+
       // Head down (submission/hiding)
       if (nose.y > leftShoulder.y + 0.1) {
         suspiciousScore += 10;
         behaviorFlags.push("Head down - evasive behavior");
       }
     }
-    
+
     // 5. FACIAL EXPRESSIONS - Emotional state analysis
     if (expressions) {
       if (expressions.angry > 0.6) {
@@ -872,36 +872,36 @@ export default function LiveAnalysis() {
         behaviorFlags.push("Emotionally flat - deceptive behavior");
       }
     }
-    
+
     // 6. MOVEMENT PATTERNS - Pacing, scanning, restlessness
     if (leftHip && rightHip && lastPoseRef.current) {
       const lastLeftHip = lastPoseRef.current.keypoints.find((kp: any) => kp.name === "left_hip");
       const lastRightHip = lastPoseRef.current.keypoints.find((kp: any) => kp.name === "right_hip");
-      
+
       if (lastLeftHip && lastRightHip) {
         const bodyMovement = Math.sqrt(
           Math.pow(leftHip.x - lastLeftHip.x, 2) + Math.pow(leftHip.y - lastLeftHip.y, 2)
         );
-        
+
         if (bodyMovement > 0.08) {
           suspiciousScore += 8;
           behaviorFlags.push("Pacing - heightened alertness");
         }
       }
     }
-    
+
     // 7. WEIGHT SHIFTING - Preparation for action
     if (leftKnee && rightKnee && leftHip && rightHip) {
       const leftLegBend = Math.abs(leftKnee.y - leftHip.y);
       const rightLegBend = Math.abs(rightKnee.y - rightHip.y);
       const asymmetry = Math.abs(leftLegBend - rightLegBend);
-      
+
       if (asymmetry > 0.15) {
         suspiciousScore += 8;
         behaviorFlags.push("Weight shifting - ready position");
       }
     }
-    
+
     // 8. ARM CROSSING - Defensive barrier
     if (leftWrist && rightWrist && leftShoulder && rightShoulder) {
       if (leftWrist.x > rightShoulder.x && rightWrist.x < leftShoulder.x) {
@@ -909,39 +909,39 @@ export default function LiveAnalysis() {
         behaviorFlags.push("Arms crossed - defensive posture");
       }
     }
-    
+
     // 9. ADVANCED FACE ANALYSIS - Micro-expressions and gaze
     if (faceLandmarks) {
       const headMovement = analyzeHeadMovement(faceLandmarks);
       const gazeDirection = analyzeGazeDirection(faceLandmarks);
       const eyeData = calculateEyeAspectRatio(faceLandmarks);
       const microExp = analyzeMicroExpressions(expressions);
-      
+
       // Head shaking (indicating "no" or disagreement)
       if (headMovement.shaking) {
         suspiciousScore += 12;
         behaviorFlags.push("Head shaking - rejection behavior");
       }
-      
+
       // Gaze aversion (avoiding direct eye contact)
       if (gazeDirection !== "center") {
         suspiciousScore += 10;
         behaviorFlags.push(`Looking ${gazeDirection} - evasive gaze`);
       }
-      
+
       // Excessive blinking (stress/lying indicator)
       if (eyeData.blinking && eyeAspectRatioHistoryRef.current.filter(ear => ear < 0.2).length > 5) {
         suspiciousScore += 8;
         behaviorFlags.push("Excessive blinking - stress detected");
       }
-      
+
       // Fear micro-expression
       if (microExp.fearScore > 40) {
         suspiciousScore += 15;
         behaviorFlags.push("Fear micro-expression - threat response");
         anomalyDetected = true;
       }
-      
+
       // High stress indicators
       if (microExp.stressScore > 60) {
         suspiciousScore += 20;
@@ -949,17 +949,17 @@ export default function LiveAnalysis() {
         anomalyDetected = true;
       }
     }
-    
+
     // Calculate threat level
     let threatLevel: "SAFE" | "CAUTION" | "WARNING" | "CRITICAL" = "SAFE";
     if (suspiciousScore > 70) threatLevel = "CRITICAL";
     else if (suspiciousScore > 50) threatLevel = "WARNING";
     else if (suspiciousScore > 25) threatLevel = "CAUTION";
-    
+
     const attentionLevel = Math.max(0, 100 - suspiciousScore);
     const fidgetingScore = Math.min(100, suspiciousScore);
     const postureDeviation = Math.min(100, suspiciousScore * 0.8);
-    
+
     return {
       threatLevel,
       suspiciousScore: Math.min(100, suspiciousScore),
@@ -970,11 +970,11 @@ export default function LiveAnalysis() {
       postureDeviation
     };
   };
-  
+
   // EDUCATION MODE: Attention & Engagement Tracking
   const analyzeEducationBehavior = (keypoints: any[], expressions?: any, faceLandmarks?: any): EducationMetrics => {
     const getKeypoint = (name: string) => keypoints.find((kp) => kp.name === name);
-    
+
     const nose = getKeypoint("nose");
     const leftEye = getKeypoint("left_eye");
     const rightEye = getKeypoint("right_eye");
@@ -986,31 +986,31 @@ export default function LiveAnalysis() {
     const rightHip = getKeypoint("right_hip");
     const leftElbow = getKeypoint("left_elbow");
     const rightElbow = getKeypoint("right_elbow");
-    
+
     const CONF = 0.5;
     let attentionScore = 100;
     const distractionFlags: string[] = [];
     const participationIndicators: string[] = [];
-    
+
     // 1. EYE CONTACT & GAZE DIRECTION - Focus on material
     if (nose && leftEye && rightEye && leftShoulder && rightShoulder) {
       const shoulderMid = { x: (leftShoulder.x + rightShoulder.x) / 2 };
       const faceDeviation = Math.abs(nose.x - shoulderMid.x);
-      
+
       if (faceDeviation > 0.15) {
         attentionScore -= 25;
         distractionFlags.push("Looking away from screen");
       } else {
         participationIndicators.push("Focused on material");
       }
-      
+
       // Eye level check (looking down at phone/notes)
       if (nose.y > leftShoulder.y + 0.12) {
         attentionScore -= 20;
         distractionFlags.push("Head down - possible distraction");
       }
     }
-    
+
     // 2. NODDING & HEAD MOVEMENT - Acknowledgment and understanding
     if (nose && lastPoseRef.current) {
       const lastNose = lastPoseRef.current.keypoints.find((kp: any) => kp.name === "nose");
@@ -1029,7 +1029,7 @@ export default function LiveAnalysis() {
         }
       }
     }
-    
+
     // 3. HAND GESTURES - Writing, raising hand, or distracted?
     if (leftWrist && rightWrist && leftShoulder && rightShoulder) {
       // Hand raised (participation)
@@ -1037,7 +1037,7 @@ export default function LiveAnalysis() {
         attentionScore = Math.min(100, attentionScore + 20);
         participationIndicators.push("Hand raised - actively participating");
       }
-      
+
       // Note-taking position (hands in front, writing)
       if (leftElbow && rightElbow && leftWrist.score > CONF && rightWrist.score > CONF) {
         const handsInFront = leftWrist.y > leftElbow.y && rightWrist.y > rightElbow.y;
@@ -1047,7 +1047,7 @@ export default function LiveAnalysis() {
           participationIndicators.push("Taking notes - engaged");
         }
       }
-      
+
       // Hands on face (boredom/tiredness)
       if (nose && rightWrist.score > CONF) {
         const distance = Math.sqrt(Math.pow(nose.x - rightWrist.x, 2) + Math.pow(nose.y - rightWrist.y, 2));
@@ -1056,28 +1056,28 @@ export default function LiveAnalysis() {
           distractionFlags.push("Hand on face - losing focus");
         }
       }
-      
+
       // Hands below desk level (phone usage)
       if (leftHip && rightHip && leftWrist.y > leftHip.y && rightWrist.y > rightHip.y) {
         attentionScore -= 20;
         distractionFlags.push("Hands below desk - possible device use");
       }
     }
-    
+
     // 4. POSTURE ENGAGEMENT - Leaning forward shows interest
     if (leftShoulder && rightShoulder && leftHip && rightHip && nose) {
       const shoulderMid = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
       const hipMid = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
-      
+
       const vertDist = Math.abs(shoulderMid.y - hipMid.y);
       const horizDist = Math.abs(shoulderMid.x - hipMid.x);
-      
+
       if (horizDist > vertDist * 0.12 && nose.y > shoulderMid.y) {
         attentionScore = Math.min(100, attentionScore + 15);
         participationIndicators.push("Leaning forward - engaged");
       }
     }
-    
+
     // 5. EMOTIONAL ENGAGEMENT
     if (expressions) {
       if (expressions.happy > 0.4 || expressions.surprised > 0.4) {
@@ -1089,36 +1089,36 @@ export default function LiveAnalysis() {
         distractionFlags.push("Flat affect - possible disengagement");
       }
     }
-    
+
     // 6. FIDGETING DETECTION
     if (lastPoseRef.current && leftWrist && rightWrist) {
       const lastLeftWrist = lastPoseRef.current.keypoints.find((kp: any) => kp.name === "left_wrist");
       const lastRightWrist = lastPoseRef.current.keypoints.find((kp: any) => kp.name === "right_wrist");
-      
+
       if (lastLeftWrist && lastRightWrist) {
         const movement = Math.sqrt(
           Math.pow(leftWrist.x - lastLeftWrist.x, 2) + Math.pow(rightWrist.x - lastRightWrist.x, 2)
         );
-        
+
         if (movement > 0.1) {
           attentionScore -= 15;
           distractionFlags.push("Excessive fidgeting detected");
         }
       }
     }
-    
+
     // 7. ADVANCED FACE ANALYSIS - Attention and engagement indicators
     if (faceLandmarks) {
       const headMovement = analyzeHeadMovement(faceLandmarks);
       const gazeDirection = analyzeGazeDirection(faceLandmarks);
       const eyeData = calculateEyeAspectRatio(faceLandmarks);
-      
+
       // Nodding (understanding/agreement indicator)
       if (headMovement.nodding) {
         attentionScore = Math.min(100, attentionScore + 15);
         participationIndicators.push("Nodding - showing understanding");
       }
-      
+
       // Direct gaze (focused attention)
       if (gazeDirection === "center") {
         attentionScore = Math.min(100, attentionScore + 10);
@@ -1127,33 +1127,33 @@ export default function LiveAnalysis() {
         attentionScore -= 12;
         distractionFlags.push(`Looking ${gazeDirection} - distracted`);
       }
-      
+
       // Eye aspect ratio (drowsiness/fatigue detection)
       if (eyeData.average < 0.25 && !eyeData.blinking) {
         attentionScore -= 20;
         distractionFlags.push("Drowsy eyes - low alertness");
       }
-      
+
       // Head tilt (confusion or disengagement)
       if (Math.abs(headMovement.tilt) > 15) {
         attentionScore -= 8;
         distractionFlags.push("Head tilted - possible confusion");
       }
     }
-    
+
     // Calculate engagement level
     let engagementLevel: "LOW" | "MEDIUM" | "HIGH" | "VERY HIGH" = "MEDIUM";
     if (attentionScore >= 85) engagementLevel = "VERY HIGH";
     else if (attentionScore >= 65) engagementLevel = "HIGH";
     else if (attentionScore >= 40) engagementLevel = "MEDIUM";
     else engagementLevel = "LOW";
-    
+
     // Focus quality (0-100)
     const focusQuality = Math.max(0, Math.min(100, attentionScore));
-    
+
     // Learning readiness (combines attention, posture, and emotional state)
     const learningReadiness = Math.max(0, Math.min(100, attentionScore - distractionFlags.length * 5));
-    
+
     return {
       attentionScore: Math.max(0, Math.min(100, attentionScore)),
       engagementLevel,
@@ -1163,11 +1163,11 @@ export default function LiveAnalysis() {
       learningReadiness
     };
   };
-  
+
   // INTERVIEW MODE: Confidence, Professionalism & Communication Quality
   const analyzeInterviewBehavior = (keypoints: any[], expressions?: any, faceLandmarks?: any): InterviewMetrics => {
     const getKeypoint = (name: string) => keypoints.find((kp) => kp.name === name);
-    
+
     const nose = getKeypoint("nose");
     const leftEye = getKeypoint("left_eye");
     const rightEye = getKeypoint("right_eye");
@@ -1177,7 +1177,7 @@ export default function LiveAnalysis() {
     const rightWrist = getKeypoint("right_wrist");
     const leftHip = getKeypoint("left_hip");
     const rightHip = getKeypoint("right_hip");
-    
+
     const CONF = 0.5;
     let confidenceScore = 50;
     let energyLevel = 50;
@@ -1186,7 +1186,7 @@ export default function LiveAnalysis() {
     const stressIndicators: string[] = [];
     const strengths: string[] = [];
     const improvements: string[] = [];
-    
+
     // 1. POSTURE CONFIDENCE
     if (leftShoulder && rightShoulder && leftHip && rightHip) {
       // Shoulder level (confidence indicator)
@@ -1198,13 +1198,13 @@ export default function LiveAnalysis() {
         confidenceScore -= 10;
         improvements.push("Level your shoulders for stronger presence");
       }
-      
+
       // Upright posture
       const shoulderMid = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
       const hipMid = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
       const vertDist = Math.abs(shoulderMid.y - hipMid.y);
       const horizDist = Math.abs(shoulderMid.x - hipMid.x);
-      
+
       const uprightness = vertDist / Math.sqrt(vertDist * vertDist + horizDist * horizDist);
       if (uprightness > 0.95) {
         confidenceScore += 20;
@@ -1214,12 +1214,12 @@ export default function LiveAnalysis() {
         improvements.push("Sit/stand more upright");
       }
     }
-    
+
     // 2. EYE CONTACT & FACE DIRECTION
     if (nose && leftEye && rightEye && leftShoulder && rightShoulder) {
       const shoulderMid = { x: (leftShoulder.x + rightShoulder.x) / 2 };
       const faceDeviation = Math.abs(nose.x - shoulderMid.x);
-      
+
       if (faceDeviation < 0.1) {
         confidenceScore += 15;
         communicationQuality += 20;
@@ -1230,29 +1230,29 @@ export default function LiveAnalysis() {
         improvements.push("Maintain direct eye contact");
       }
     }
-    
+
     // 3. HAND GESTURES - Natural vs. Nervous
     if (leftWrist && rightWrist && leftShoulder && rightShoulder) {
       // Open hand gestures (confidence)
       const armSpan = Math.abs(leftWrist.x - rightWrist.x);
       const shoulderSpan = Math.abs(leftShoulder.x - rightShoulder.x);
-      
+
       if (armSpan > shoulderSpan * 1.2 && leftWrist.y < leftShoulder.y + 0.1) {
         confidenceScore += 15;
         energyLevel += 20;
         strengths.push("Expressive hand gestures - engaging");
       }
-      
+
       // Fidgeting detection
       if (lastPoseRef.current) {
         const lastLeftWrist = lastPoseRef.current.keypoints.find((kp: any) => kp.name === "left_wrist");
         const lastRightWrist = lastPoseRef.current.keypoints.find((kp: any) => kp.name === "right_wrist");
-        
+
         if (lastLeftWrist && lastRightWrist) {
           const movement = Math.sqrt(
-            Math.pow(leftWrist.x - lastLeftWrist.x, 2) + Math.pow(rightWrist.x - lastRightWrist.x, 2)
+            Math.pow(leftWrist.x - lastLeftWrist.x, 2) + Math.pow(rightWrist.y - lastRightWrist.y, 2)
           );
-          
+
           if (movement > 0.15) {
             confidenceScore -= 15;
             stressIndicators.push("Excessive hand movement - nervousness");
@@ -1260,7 +1260,7 @@ export default function LiveAnalysis() {
           }
         }
       }
-      
+
       // Hand-to-face (stress indicator)
       if (nose && rightWrist.score > CONF) {
         const distance = Math.sqrt(Math.pow(nose.x - rightWrist.x, 2) + Math.pow(nose.y - rightWrist.y, 2));
@@ -1270,7 +1270,7 @@ export default function LiveAnalysis() {
         }
       }
     }
-    
+
     // 4. EMOTIONAL AUTHENTICITY
     if (expressions) {
       // Genuine smile (Duchenne marker)
@@ -1279,27 +1279,27 @@ export default function LiveAnalysis() {
         energyLevel += 15;
         strengths.push("Positive, approachable demeanor");
       }
-      
+
       // Stress/anxiety markers
       if (expressions.fear > 0.4 || expressions.surprised > 0.5) {
         confidenceScore -= 15;
         stressIndicators.push("Anxiety detected in facial expression");
         authenticityScore -= 15;
       }
-      
+
       // Anger/frustration
       if (expressions.angry > 0.3 || expressions.disgust > 0.3) {
         communicationQuality -= 20;
         stressIndicators.push("Negative emotion detected");
       }
-      
+
       // Over-controlled (too neutral can seem inauthentic)
       if (expressions.neutral > 0.8) {
         authenticityScore -= 10;
-        improvements.push("Show more natural emotion");
+        improvements.push("Show more natural expressions");
       }
     }
-    
+
     // 5. ENERGY & ENGAGEMENT
     if (leftShoulder && rightShoulder && nose) {
       // Leaning forward (engagement)
@@ -1309,14 +1309,14 @@ export default function LiveAnalysis() {
         strengths.push("Engaged and attentive body language");
       }
     }
-    
+
     // 6. ADVANCED FACE ANALYSIS - Confidence and communication indicators
     if (faceLandmarks) {
       const headMovement = analyzeHeadMovement(faceLandmarks);
       const gazeDirection = analyzeGazeDirection(faceLandmarks);
       const eyeData = calculateEyeAspectRatio(faceLandmarks);
       const microExp = analyzeMicroExpressions(expressions);
-      
+
       // Direct gaze (confidence indicator)
       if (gazeDirection === "center") {
         confidenceScore += 15;
@@ -1327,26 +1327,26 @@ export default function LiveAnalysis() {
         communicationQuality -= 12;
         improvements.push("Maintain direct eye contact");
       }
-      
+
       // Nodding (active listening/agreement)
       if (headMovement.nodding) {
         communicationQuality += 10;
         energyLevel += 8;
         strengths.push("Nodding - active listening");
       }
-      
+
       // Head shaking (disagreement/uncertainty)
       if (headMovement.shaking) {
         confidenceScore -= 8;
         stressIndicators.push("Head shaking - uncertainty detected");
       }
-      
+
       // Stress and authenticity micro-expressions
       if (microExp.stressScore > 50) {
         confidenceScore -= 15;
         stressIndicators.push("High stress micro-expressions");
       }
-      
+
       if (microExp.authenticityScore < 50) {
         authenticityScore = Math.min(authenticityScore, microExp.authenticityScore);
         improvements.push("Show more natural expressions");
@@ -1354,21 +1354,21 @@ export default function LiveAnalysis() {
         authenticityScore = Math.max(authenticityScore, microExp.authenticityScore);
         strengths.push("Authentic emotional expressions");
       }
-      
+
       // Energy level based on facial cues and movement
       const faceEnergyBoost = analyzeEnergyLevel(keypoints, expressions, headMovement);
       energyLevel = Math.max(energyLevel, faceEnergyBoost);
     }
-    
+
     // 7. PROFESSIONALISM SCORING
     let professionalismLevel: "POOR" | "FAIR" | "GOOD" | "EXCELLENT" = "FAIR";
     const overallScore = (confidenceScore + communicationQuality + authenticityScore) / 3;
-    
+
     if (overallScore >= 80) professionalismLevel = "EXCELLENT";
     else if (overallScore >= 65) professionalismLevel = "GOOD";
     else if (overallScore >= 45) professionalismLevel = "FAIR";
     else professionalismLevel = "POOR";
-    
+
     return {
       confidenceScore: Math.max(0, Math.min(100, confidenceScore)),
       professionalismLevel,
@@ -1383,7 +1383,7 @@ export default function LiveAnalysis() {
 
   const decodeBodyLanguage = (keypoints: any[]): string => {
     const getKeypoint = (name: string) => keypoints.find((kp) => kp.name === name);
-    
+
     const leftWrist = getKeypoint("left_wrist");
     const rightWrist = getKeypoint("right_wrist");
     const leftElbow = getKeypoint("left_elbow");
@@ -1397,14 +1397,14 @@ export default function LiveAnalysis() {
     const rightEye = getKeypoint("right_eye");
 
     const CONF = 0.5;
-    
+
     // Hand raising detection
     if (rightWrist && rightShoulder && rightWrist.score > CONF && rightShoulder.score > CONF) {
       if (rightWrist.y < rightShoulder.y - 0.15) {
         return "Raising right hand to signal attention or ask a question";
       }
     }
-    
+
     if (leftWrist && leftShoulder && leftWrist.score > CONF && leftShoulder.score > CONF) {
       if (leftWrist.y < leftShoulder.y - 0.15) {
         return "Raising left hand to signal attention or ask a question";
@@ -1477,7 +1477,7 @@ export default function LiveAnalysis() {
         nose.score > 0.6 && leftShoulder.score > CONF && rightShoulder.score > CONF) {
       const shoulderMid = { x: (leftShoulder.x + leftShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
       const hipMid = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
-      
+
       if (nose.y > shoulderMid.y && Math.abs(nose.x - shoulderMid.x) < 0.15) {
         const vertDist = Math.abs(shoulderMid.y - hipMid.y);
         const horizDist = Math.abs(shoulderMid.x - hipMid.x);
@@ -1501,11 +1501,11 @@ export default function LiveAnalysis() {
     if (lastPoseRef.current && leftWrist && rightWrist) {
       const lastLeftWrist = lastPoseRef.current.keypoints.find((kp: any) => kp.name === "left_wrist");
       const lastRightWrist = lastPoseRef.current.keypoints.find((kp: any) => kp.name === "right_wrist");
-      
+
       if (lastLeftWrist && lastRightWrist && leftWrist.score > CONF && rightWrist.score > CONF) {
         const leftMovement = Math.sqrt(Math.pow(leftWrist.x - lastLeftWrist.x, 2) + Math.pow(leftWrist.y - lastLeftWrist.y, 2));
         const rightMovement = Math.sqrt(Math.pow(rightWrist.x - lastRightWrist.x, 2) + Math.pow(rightWrist.y - lastRightWrist.y, 2));
-        
+
         if (leftMovement > 0.08 && rightMovement > 0.08) {
           return "Hands moving rapidly, indicating nervousness or restlessness";
         }
@@ -1517,10 +1517,10 @@ export default function LiveAnalysis() {
         leftShoulder.score > CONF && rightShoulder.score > CONF) {
       const shoulderMid = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
       const hipMid = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
-      
+
       const vertDist = Math.abs(shoulderMid.y - hipMid.y);
       const horizDist = Math.abs(shoulderMid.x - hipMid.x);
-      
+
       if (vertDist > 0 && horizDist / vertDist > 0.25) {
         return "Slouching posture, suggesting low energy or lack of interest";
       }
@@ -1531,10 +1531,10 @@ export default function LiveAnalysis() {
         leftShoulder.score > CONF && rightShoulder.score > CONF) {
       const shoulderMid = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
       const hipMid = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
-      
+
       const vertDist = Math.abs(shoulderMid.y - hipMid.y);
       const horizDist = Math.abs(shoulderMid.x - hipMid.x);
-      
+
       if (vertDist > 0 && horizDist / vertDist < 0.1) {
         const shoulderLevel = Math.abs(leftShoulder.y - rightShoulder.y);
         if (shoulderLevel < 0.05) {
@@ -1551,7 +1551,7 @@ export default function LiveAnalysis() {
     if (!ctx || !poses.length) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
+
     // Apply coordinate scaling for proper overlay alignment
     ctx.save();
     ctx.scale(scaleX, scaleY);
@@ -1643,7 +1643,7 @@ export default function LiveAnalysis() {
         ctx.stroke();
       }
     });
-    
+
     ctx.restore();
   };
 
@@ -1652,14 +1652,14 @@ export default function LiveAnalysis() {
     if (!ctx) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
+
     if (detections && detections.length > 0) {
       setFaceTracking(true);
-      
+
       detections.forEach((detection: any) => {
         const landmarks = detection.landmarks;
         const box = detection.detection.box;
-        
+
         // Draw face bounding box with glow effect - coordinates already in video space
         const smoothedBox = smoothFaceBox({
           x: box.x * scaleX,
@@ -1667,7 +1667,7 @@ export default function LiveAnalysis() {
           width: box.width * scaleX,
           height: box.height * scaleY
         });
-        
+
         ctx.strokeStyle = "rgba(34, 197, 94, 0.8)";
         ctx.lineWidth = 3;
         ctx.shadowBlur = 15;
@@ -1677,7 +1677,7 @@ export default function LiveAnalysis() {
 
         // Draw 68 facial landmarks
         const positions = landmarks.positions;
-        
+
         // Draw landmark points with scaling
         positions.forEach((point: any) => {
           ctx.beginPath();
@@ -1780,7 +1780,7 @@ export default function LiveAnalysis() {
         // Highlight eyes with brighter color
         ctx.strokeStyle = "rgba(59, 130, 246, 0.7)";
         ctx.lineWidth = 2;
-        
+
         // Left eye highlight
         ctx.beginPath();
         for (let i = 36; i <= 41; i++) {
@@ -1816,7 +1816,7 @@ export default function LiveAnalysis() {
     if (!ctx || !poses.length) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
+
     // Apply coordinate scaling for proper overlay alignment
     ctx.save();
     ctx.scale(scaleX, scaleY);
@@ -1831,7 +1831,7 @@ export default function LiveAnalysis() {
       WARNING: "rgba(249, 115, 22, 0.9)",
       CRITICAL: "rgba(239, 68, 68, 0.9)"
     };
-    
+
     const color = threatColors[metrics.threatLevel];
 
     // Complete skeletal connections including head
@@ -1862,7 +1862,7 @@ export default function LiveAnalysis() {
         const gradient = ctx.createLinearGradient(startKp.x, startKp.y, endKp.x, endKp.y);
         gradient.addColorStop(0, color);
         gradient.addColorStop(1, color.replace('0.9', '0.6'));
-        
+
         ctx.shadowBlur = 15;
         ctx.shadowColor = color;
         ctx.beginPath();
@@ -1908,12 +1908,16 @@ export default function LiveAnalysis() {
 
       const centerX = (minX + maxX) / 2;
       const centerY = (minY + maxY) / 2;
-      const width = (maxX - minX) * 2.2;
-      const height = (maxY - minY) * 2.4;
+      const rawWidth = (maxX - minX) * 2.5;
+      const rawHeight = (maxY - minY) * 2.8;
+
+      const boxSize = Math.max(rawWidth, rawHeight);
+      const width = boxSize;
+      const height = boxSize * 1.15;
 
       const boxX = centerX - width / 2;
       const boxY = centerY - height / 2;
-      
+
       ctx.strokeStyle = color;
       ctx.lineWidth = 3;
       ctx.shadowBlur = 12;
@@ -1926,7 +1930,7 @@ export default function LiveAnalysis() {
     const threatText = `${metrics.threatLevel} - ${metrics.suspiciousScore}%`;
     ctx.font = "bold 24px Inter, sans-serif";
     ctx.textAlign = "center";
-    
+
     const textWidth = ctx.measureText(threatText).width + 40;
     const textX = canvas.width / 2;
     const textY = 50;
@@ -1941,7 +1945,7 @@ export default function LiveAnalysis() {
 
     ctx.fillStyle = "white";
     ctx.fillText(threatText, textX, textY);
-    
+
     ctx.restore();
   };
 
@@ -1951,7 +1955,7 @@ export default function LiveAnalysis() {
     if (!ctx || !poses.length) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
+
     // Apply coordinate scaling for proper overlay alignment
     ctx.save();
     ctx.scale(scaleX, scaleY);
@@ -1966,7 +1970,7 @@ export default function LiveAnalysis() {
       "MEDIUM": "rgba(234, 179, 8, 0.9)",
       "LOW": "rgba(239, 68, 68, 0.9)"
     };
-    
+
     const color = engagementColors[metrics.engagementLevel];
 
     // Complete skeletal visualization
@@ -1997,7 +2001,7 @@ export default function LiveAnalysis() {
         const gradient = ctx.createLinearGradient(startKp.x, startKp.y, endKp.x, endKp.y);
         gradient.addColorStop(0, color);
         gradient.addColorStop(1, color.replace('0.9', '0.6'));
-        
+
         ctx.shadowBlur = 12;
         ctx.shadowColor = color;
         ctx.beginPath();
@@ -2043,12 +2047,16 @@ export default function LiveAnalysis() {
 
       const centerX = (minX + maxX) / 2;
       const centerY = (minY + maxY) / 2;
-      const width = (maxX - minX) * 2.2;
-      const height = (maxY - minY) * 2.4;
+      const rawWidth = (maxX - minX) * 2.5;
+      const rawHeight = (maxY - minY) * 2.8;
+
+      const boxSize = Math.max(rawWidth, rawHeight);
+      const width = boxSize;
+      const height = boxSize * 1.15;
 
       const boxX = centerX - width / 2;
       const boxY = centerY - height / 2;
-      
+
       ctx.strokeStyle = color;
       ctx.lineWidth = 3;
       ctx.shadowBlur = 12;
@@ -2061,7 +2069,7 @@ export default function LiveAnalysis() {
     const scoreText = `${metrics.engagementLevel} - ${metrics.attentionScore}%`;
     ctx.font = "bold 22px Inter, sans-serif";
     ctx.textAlign = "center";
-    
+
     const textWidth = ctx.measureText(scoreText).width + 40;
     const textX = canvas.width / 2;
     const textY = 50;
@@ -2076,7 +2084,7 @@ export default function LiveAnalysis() {
 
     ctx.fillStyle = "white";
     ctx.fillText(scoreText, textX, textY);
-    
+
     ctx.restore();
   };
 
@@ -2086,7 +2094,7 @@ export default function LiveAnalysis() {
     if (!ctx || !poses.length) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
+
     // Apply coordinate scaling for proper overlay alignment
     ctx.save();
     ctx.scale(scaleX, scaleY);
@@ -2101,7 +2109,7 @@ export default function LiveAnalysis() {
       "FAIR": "rgba(234, 179, 8, 0.9)",
       "POOR": "rgba(239, 68, 68, 0.9)"
     };
-    
+
     const color = profColors[metrics.professionalismLevel];
 
     // Premium skeletal overlay
@@ -2126,7 +2134,7 @@ export default function LiveAnalysis() {
         const gradient = ctx.createLinearGradient(startKp.x, startKp.y, endKp.x, endKp.y);
         gradient.addColorStop(0, color);
         gradient.addColorStop(1, color.replace('0.9', '0.6'));
-        
+
         ctx.shadowBlur = 14;
         ctx.shadowColor = color;
         ctx.beginPath();
@@ -2156,7 +2164,7 @@ export default function LiveAnalysis() {
     const scoreText = `${metrics.professionalismLevel} - ${metrics.confidenceScore}%`;
     ctx.font = "bold 22px Inter, sans-serif";
     ctx.textAlign = "center";
-    
+
     const textWidth = ctx.measureText(scoreText).width + 40;
     const textX = canvas.width / 2;
     const textY = 50;
@@ -2171,7 +2179,7 @@ export default function LiveAnalysis() {
 
     ctx.fillStyle = "white";
     ctx.fillText(scoreText, textX, textY);
-    
+
     ctx.restore();
   };
 
@@ -2181,7 +2189,7 @@ export default function LiveAnalysis() {
     if (!ctx || !poses.length) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
+
     // Apply coordinate scaling for proper overlay alignment
     ctx.save();
     ctx.scale(scaleX, scaleY);
@@ -2219,20 +2227,20 @@ export default function LiveAnalysis() {
           // Glow effect
           ctx.shadowBlur = 12;
           ctx.shadowColor = "rgba(34, 197, 94, 0.6)";
-          
+
           // Gradient line
           const gradient = ctx.createLinearGradient(startKp.x, startKp.y, endKp.x, endKp.y);
           gradient.addColorStop(0, "rgba(34, 197, 94, 0.9)");
           gradient.addColorStop(0.5, "rgba(16, 185, 129, 0.9)");
           gradient.addColorStop(1, "rgba(34, 197, 94, 0.9)");
-          
+
           ctx.beginPath();
           ctx.moveTo(startKp.x, startKp.y);
           ctx.lineTo(endKp.x, endKp.y);
           ctx.strokeStyle = gradient;
           ctx.lineWidth = 3;
           ctx.stroke();
-          
+
           ctx.shadowBlur = 0;
         }
       });
@@ -2243,12 +2251,12 @@ export default function LiveAnalysis() {
           // Outer glow
           ctx.shadowBlur = 10;
           ctx.shadowColor = keypoint.score > 0.7 ? "rgba(34, 197, 94, 0.8)" : "rgba(251, 191, 36, 0.8)";
-          
+
           ctx.beginPath();
           ctx.arc(keypoint.x, keypoint.y, 6, 0, 2 * Math.PI);
           ctx.fillStyle = keypoint.score > 0.7 ? "rgba(34, 197, 94, 0.9)" : "rgba(251, 191, 36, 0.9)";
           ctx.fill();
-          
+
           // Inner bright core
           ctx.shadowBlur = 0;
           ctx.beginPath();
@@ -2276,40 +2284,31 @@ export default function LiveAnalysis() {
         // Calculate center and dimensions
         const centerX = (rawMinX + rawMaxX) / 2;
         const centerY = (rawMinY + rawMaxY) / 2;
-        const rawWidth = rawMaxX - rawMinX;
-        const rawHeight = rawMaxY - rawMinY;
+        const rawWidth = (rawMaxX - rawMinX) * 2.5;
+        const rawHeight = (rawMaxY - rawMinY) * 2.8;
 
-        // Expand box to ensure full face coverage
-        // Use aspect ratio to maintain proper proportions
-        const targetAspectRatio = 0.85; // Slightly wider than tall for natural face shape
-        let boxWidth = rawWidth * 2.2; // Expand to capture full face
-        let boxHeight = rawHeight * 2.4;
-
-        // Adjust dimensions to maintain aspect ratio
-        if (boxWidth / boxHeight < targetAspectRatio) {
-          boxWidth = boxHeight * targetAspectRatio;
-        } else {
-          boxHeight = boxWidth / targetAspectRatio;
-        }
+        const boxSize = Math.max(rawWidth, rawHeight);
+        const width = boxSize;
+        const height = boxSize * 1.15;
 
         // Create smooth box with center-based positioning
         const rawBox = {
-          x: centerX - boxWidth / 2,
-          y: centerY - boxHeight / 2,
-          width: boxWidth,
-          height: boxHeight
+          x: centerX - width / 2,
+          y: centerY - height / 2,
+          width: width,
+          height: height
         };
 
         // Apply smoothing
         const smoothedBox = smoothFaceBox(rawBox);
         const { x: boxX, y: boxY, width: finalWidth, height: finalHeight } = smoothedBox;
-        
+
         const cornerRadius = 10;
 
         // Draw lightweight face box with subtle styling
         ctx.shadowBlur = 10;
         ctx.shadowColor = "rgba(59, 130, 246, 0.4)";
-        
+
         ctx.strokeStyle = "rgba(59, 130, 246, 0.9)";
         ctx.lineWidth = 2.5;
         ctx.beginPath();
@@ -2324,14 +2323,14 @@ export default function LiveAnalysis() {
         ctx.arcTo(boxX, boxY, boxX + cornerRadius, boxY, cornerRadius);
         ctx.closePath();
         ctx.stroke();
-        
+
         ctx.shadowBlur = 0;
 
         // Draw lightweight adjective label
         ctx.font = "600 18px Inter, system-ui, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "bottom";
-        
+
         const textMetrics = ctx.measureText(adjective);
         const textWidth = textMetrics.width + 24;
         const textHeight = 32;
@@ -2343,7 +2342,7 @@ export default function LiveAnalysis() {
         bgGradient.addColorStop(0, "rgba(0, 0, 0, 0.8)");
         bgGradient.addColorStop(0.5, "rgba(15, 15, 25, 0.85)");
         bgGradient.addColorStop(1, "rgba(0, 0, 0, 0.8)");
-        
+
         ctx.fillStyle = bgGradient;
         ctx.shadowBlur = 6;
         ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
@@ -2359,7 +2358,7 @@ export default function LiveAnalysis() {
         ctx.arcTo(textX - textWidth/2, textY - textHeight, textX - textWidth/2 + 6, textY - textHeight, 6);
         ctx.closePath();
         ctx.fill();
-        
+
         ctx.shadowBlur = 0;
 
         // Draw text with subtle glow
@@ -2370,7 +2369,7 @@ export default function LiveAnalysis() {
         ctx.shadowBlur = 0;
       }
     });
-    
+
     ctx.restore();
   };
 
@@ -2387,7 +2386,7 @@ export default function LiveAnalysis() {
       // Set canvas dimensions to match the displayed video size for proper overlay alignment
       const displayWidth = video.clientWidth;
       const displayHeight = video.clientHeight;
-      
+
       if (overlayCanvas.width !== displayWidth || overlayCanvas.height !== displayHeight) {
         overlayCanvas.width = displayWidth;
         overlayCanvas.height = displayHeight;
@@ -2400,11 +2399,11 @@ export default function LiveAnalysis() {
       try {
         if (mode === "security" || mode === "education" || mode === "interview") {
           if (!detectorRef.current || !detectorReady) return;
-          
+
           // Smart frame skipping for performance
           const shouldProcess = frameSkipCounterRef.current % 2 === 0;
           frameSkipCounterRef.current++;
-          
+
           if (shouldProcess) {
             const poses = await detectorRef.current.estimatePoses(video, {
               flipHorizontal: false,
@@ -2421,7 +2420,7 @@ export default function LiveAnalysis() {
                 }))
                 .withFaceLandmarks()
                 .withFaceExpressions();
-              
+
               if (detections && detections.length > 0) {
                 expressions = detections[0].expressions;
                 faceLandmarks = detections[0].landmarks;
@@ -2435,19 +2434,19 @@ export default function LiveAnalysis() {
               if (mode === "security") {
                 const secMetrics = analyzeSecurityBehavior(poses[0].keypoints, expressions, faceLandmarks);
                 setSecurityMetrics(secMetrics);
-                
+
                 // Visual feedback with coordinate scaling
                 drawSecurityOverlay(poses, overlayCanvas, secMetrics, scaleX, scaleY);
               } else if (mode === "education") {
                 const eduMetrics = analyzeEducationBehavior(poses[0].keypoints, expressions, faceLandmarks);
                 setEducationMetrics(eduMetrics);
-                
+
                 // Visual feedback
                 drawEducationOverlay(poses, overlayCanvas, eduMetrics, scaleX, scaleY);
               } else if (mode === "interview") {
                 const intMetrics = analyzeInterviewBehavior(poses[0].keypoints, expressions, faceLandmarks);
                 setInterviewMetrics(intMetrics);
-                
+
                 // Visual feedback
                 drawInterviewOverlay(poses, overlayCanvas, intMetrics, scaleX, scaleY);
               }
@@ -2460,7 +2459,7 @@ export default function LiveAnalysis() {
           }
         } else if (mode === "expressions") {
           if (!faceApiLoadedRef.current || !faceDetectorReady) return;
-          
+
           // Detect faces with landmarks and expressions using face-api.js
           const detections = await faceapi
             .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({
@@ -2492,11 +2491,11 @@ export default function LiveAnalysis() {
           }
         } else if (mode === "composure") {
           if (!detectorRef.current || !detectorReady) return;
-          
+
           // Smart frame skipping: process every 2nd frame when stable for better performance
           const shouldProcess = !isStable || frameSkipCounterRef.current % 2 === 0;
           frameSkipCounterRef.current++;
-          
+
           if (shouldProcess) {
             const poses = await detectorRef.current.estimatePoses(video, {
               flipHorizontal: false,
@@ -2506,12 +2505,12 @@ export default function LiveAnalysis() {
               const { metrics: rawMetrics, feedback: newFeedback, composureScore: rawScore } = calculatePostureMetrics(
                 poses[0].keypoints
               );
-              
+
               // Apply smoothing for stability
               const smoothedMetrics = smoothMetrics(rawMetrics);
               const smoothedScore = smoothComposureScore(rawScore);
               const { adjective: stableAdjective, isStable: readingIsStable } = getStableAdjective(smoothedScore);
-              
+
               setMetrics(smoothedMetrics);
               setFeedback(newFeedback);
               setComposureScore(smoothedScore);
@@ -2529,21 +2528,21 @@ export default function LiveAnalysis() {
           }
         } else if (mode === "decoder") {
           if (!detectorRef.current || !detectorReady) return;
-          
+
           const poses = await detectorRef.current.estimatePoses(video, {
             flipHorizontal: false,
           });
 
           if (poses && poses.length > 0) {
             const decodedText = decodeBodyLanguage(poses[0].keypoints);
-            
+
             // Only add to history if it's a new action (not "Maintaining neutral stance")
             if (decodedText !== lastDecodedActionRef.current && decodedText !== "Maintaining neutral stance") {
               lastDecodedActionRef.current = decodedText;
               decodingHistoryRef.current.push(decodedText);
               setDecodedTexts([...decodingHistoryRef.current]);
             }
-            
+
             setCurrentDecoding(decodedText);
             drawPoseLandmarks(poses, overlayCanvas, scaleX, scaleY);
             lastPoseRef.current = poses[0];
@@ -2648,7 +2647,7 @@ export default function LiveAnalysis() {
       clearInterval(emotionIntervalRef.current);
       emotionIntervalRef.current = null;
     }
-    
+
     // Clear smoothing buffers for fresh start
     metricsHistoryRef.current = [];
     scoreHistoryRef.current = [];
@@ -2657,7 +2656,7 @@ export default function LiveAnalysis() {
     lastDecodedActionRef.current = "";
     decodingHistoryRef.current = [];
     lastPoseRef.current = null;
-    
+
     setIsStreaming(false);
     setFeedback([]);
     setMetrics([]);
