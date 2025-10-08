@@ -654,87 +654,118 @@ export default function LiveAnalysis() {
           innerLips: [[60, 61], [61, 62], [62, 63], [63, 64], [64, 65], [65, 66], [66, 67], [67, 60]]
         };
 
-        // Draw mesh connections with different colors for different features
-        const drawFeatureConnections = (indices: number[][], color: string, lineWidth: number = 1.2) => {
+        // Enhanced mesh drawing with BOLD, VISIBLE lines
+        const drawFeatureConnections = (indices: number[][], color: string, lineWidth: number = 2.5, glowIntensity: number = 15) => {
           indices.forEach(([start, end]) => {
             if (start < positions.length && end < positions.length) {
               const startPoint = positions[start];
               const endPoint = positions[end];
               
-              // Gradient line for depth effect
+              // Strong glow effect for visibility
+              ctx.shadowBlur = glowIntensity;
+              ctx.shadowColor = color.replace(/[\d.]+\)$/, '0.8)'); // Increase alpha for glow
+              
+              // Bright gradient line for maximum visibility
               const gradient = ctx.createLinearGradient(
                 startPoint.x, startPoint.y, 
                 endPoint.x, endPoint.y
               );
-              gradient.addColorStop(0, color);
-              gradient.addColorStop(0.5, color.replace('0.7', '0.9'));
-              gradient.addColorStop(1, color);
+              const brightColor = color.replace(/[\d.]+\)$/, '1)'); // Full opacity
+              gradient.addColorStop(0, brightColor);
+              gradient.addColorStop(0.5, color.replace(/[\d.]+\)$/, '0.95)'));
+              gradient.addColorStop(1, brightColor);
               
               ctx.beginPath();
               ctx.moveTo(startPoint.x, startPoint.y);
               ctx.lineTo(endPoint.x, endPoint.y);
               ctx.strokeStyle = gradient;
               ctx.lineWidth = lineWidth;
+              ctx.lineCap = 'round';
+              ctx.lineJoin = 'round';
               ctx.stroke();
+              
+              ctx.shadowBlur = 0;
             }
           });
         };
 
-        // Draw all facial features with color coding
-        drawFeatureConnections(connections.jawline, "rgba(0, 255, 150, 0.7)", 1.5); // Cyan-green for jawline
-        drawFeatureConnections(connections.leftEyebrow, "rgba(100, 200, 255, 0.7)", 1.3); // Light blue for eyebrows
-        drawFeatureConnections(connections.rightEyebrow, "rgba(100, 200, 255, 0.7)", 1.3);
-        drawFeatureConnections(connections.noseBridge, "rgba(255, 200, 100, 0.7)", 1.2); // Gold for nose
-        drawFeatureConnections(connections.noseBase, "rgba(255, 200, 100, 0.7)", 1.2);
-        drawFeatureConnections(connections.leftEye, "rgba(255, 100, 200, 0.7)", 1.4); // Pink for eyes
-        drawFeatureConnections(connections.rightEye, "rgba(255, 100, 200, 0.7)", 1.4);
-        drawFeatureConnections(connections.outerLips, "rgba(255, 50, 100, 0.7)", 1.5); // Red for lips
-        drawFeatureConnections(connections.innerLips, "rgba(255, 50, 100, 0.7)", 1.3);
+        // Draw all facial features with BOLD, BRIGHT colors for maximum visibility
+        drawFeatureConnections(connections.jawline, "rgba(0, 255, 150, 0.95)", 3.5, 20); // Bright cyan-green jawline
+        drawFeatureConnections(connections.leftEyebrow, "rgba(100, 200, 255, 0.95)", 3, 18); // Bright blue eyebrows
+        drawFeatureConnections(connections.rightEyebrow, "rgba(100, 200, 255, 0.95)", 3, 18);
+        drawFeatureConnections(connections.noseBridge, "rgba(255, 200, 100, 0.95)", 2.8, 16); // Bright gold nose
+        drawFeatureConnections(connections.noseBase, "rgba(255, 200, 100, 0.95)", 2.8, 16);
+        drawFeatureConnections(connections.leftEye, "rgba(255, 100, 200, 0.95)", 3.2, 19); // Bright pink eyes
+        drawFeatureConnections(connections.rightEye, "rgba(255, 100, 200, 0.95)", 3.2, 19);
+        drawFeatureConnections(connections.outerLips, "rgba(255, 50, 100, 0.95)", 3.5, 20); // Bright red lips
+        drawFeatureConnections(connections.innerLips, "rgba(255, 50, 100, 0.95)", 3, 18);
 
-        // Draw landmark points with glow effect
+        // Add EXTENSIVE cross-facial structural connections for full mesh visibility
+        const structuralConnections = [
+          // Eyes to nose bridge (stronger connections)
+          [36, 27], [39, 27], [45, 27], [42, 27],
+          
+          // Eyebrows to eyes (full connection)
+          [17, 36], [18, 37], [19, 38], [20, 39], [21, 40],
+          [22, 42], [23, 43], [24, 44], [25, 45], [26, 46],
+          
+          // Nose to mouth (complete bridge)
+          [30, 51], [31, 48], [33, 51], [33, 57], [35, 54],
+          
+          // Jawline to mouth (structural support)
+          [2, 48], [3, 49], [4, 50], [12, 52], [13, 53], [14, 54],
+          
+          // Vertical face structure lines
+          [27, 33], [33, 51], [33, 57], // Center vertical line
+          
+          // Cheekbone structure
+          [1, 31], [15, 35], [0, 36], [16, 45],
+          
+          // Additional facial triangle connections
+          [8, 51], [8, 57], [8, 33], // Chin to nose/mouth
+          [27, 36], [27, 45], // Nose bridge to eye corners
+        ];
+
+        drawFeatureConnections(structuralConnections, "rgba(59, 130, 246, 0.85)", 2.2, 14);
+
+        // Draw PROMINENT landmark points with strong glow
         positions.forEach((position: any, idx: number) => {
           // Determine point color based on feature
-          let pointColor = "rgba(0, 255, 0, 0.9)"; // Default green
+          let pointColor = "rgba(0, 255, 0, 1)"; // Default bright green
+          let pointSize = 4;
           
           if (idx >= 36 && idx <= 47) { // Eyes
-            pointColor = "rgba(255, 100, 200, 1)"; // Pink
+            pointColor = "rgba(255, 100, 200, 1)"; // Bright pink
+            pointSize = 5;
           } else if (idx >= 48 && idx <= 67) { // Lips
-            pointColor = "rgba(255, 50, 100, 1)"; // Red
+            pointColor = "rgba(255, 50, 100, 1)"; // Bright red
+            pointSize = 4.5;
           } else if (idx >= 27 && idx <= 35) { // Nose
-            pointColor = "rgba(255, 200, 100, 1)"; // Gold
+            pointColor = "rgba(255, 200, 100, 1)"; // Bright gold
+            pointSize = 4;
           } else if (idx >= 17 && idx <= 26) { // Eyebrows
-            pointColor = "rgba(100, 200, 255, 1)"; // Light blue
+            pointColor = "rgba(100, 200, 255, 1)"; // Bright blue
+            pointSize = 4;
+          } else if (idx >= 0 && idx <= 16) { // Jawline
+            pointColor = "rgba(0, 255, 150, 1)"; // Bright cyan
+            pointSize = 4.5;
           }
 
-          // Outer glow
-          ctx.shadowBlur = 6;
+          // Strong outer glow
+          ctx.shadowBlur = 12;
           ctx.shadowColor = pointColor;
           ctx.beginPath();
-          ctx.arc(position.x, position.y, 2.5, 0, 2 * Math.PI);
+          ctx.arc(position.x, position.y, pointSize, 0, 2 * Math.PI);
           ctx.fillStyle = pointColor;
           ctx.fill();
           
-          // Inner bright core
+          // Bright inner core
           ctx.shadowBlur = 0;
           ctx.beginPath();
-          ctx.arc(position.x, position.y, 1.5, 0, 2 * Math.PI);
-          ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
+          ctx.arc(position.x, position.y, pointSize * 0.6, 0, 2 * Math.PI);
+          ctx.fillStyle = "rgba(255, 255, 255, 1)";
           ctx.fill();
         });
-
-        // Add connecting lines between key facial regions for full mesh effect
-        const crossConnections = [
-          // Eyes to nose bridge
-          [36, 27], [45, 27], // Left eye to nose, Right eye to nose
-          // Eyebrows to eyes
-          [19, 37], [24, 44],
-          // Nose to mouth
-          [33, 51], [33, 57],
-          // Jawline to mouth corners
-          [3, 48], [13, 54]
-        ];
-
-        drawFeatureConnections(crossConnections, "rgba(0, 255, 150, 0.4)", 0.8);
 
         ctx.shadowBlur = 0; // Reset shadow
       }
