@@ -1602,25 +1602,28 @@ export default function LiveAnalysis() {
 
       keypoints.forEach((keypoint: any) => {
         if (keypoint.score > 0.3) {
+          // Outer glow
           ctx.beginPath();
           ctx.arc(keypoint.x, keypoint.y, 8, 0, 2 * Math.PI);
           const glowGradient = ctx.createRadialGradient(
             keypoint.x, keypoint.y, 0,
             keypoint.x, keypoint.y, 8
           );
-          glowGradient.addColorStop(0, keypoint.score > 0.6 ? "rgba(34, 197, 94, 0.6)" : "rgba(245, 158, 11, 0.6)");
+          glowGradient.addColorStop(0, keypoint.score > 0.6 ? "rgba(34, 197, 94, 0.7)" : "rgba(245, 158, 11, 0.7)");
           glowGradient.addColorStop(1, "rgba(0, 0, 0, 0)");
           ctx.fillStyle = glowGradient;
           ctx.fill();
 
+          // Main dot
           ctx.beginPath();
-          ctx.arc(keypoint.x, keypoint.y, 4, 0, 2 * Math.PI);
+          ctx.arc(keypoint.x, keypoint.y, 5, 0, 2 * Math.PI);
           ctx.fillStyle = keypoint.score > 0.6 ? "#22c55e" : "#f59e0b";
           ctx.fill();
 
+          // Center highlight
           ctx.beginPath();
-          ctx.arc(keypoint.x - 1, keypoint.y - 1, 2, 0, 2 * Math.PI);
-          ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+          ctx.arc(keypoint.x, keypoint.y, 2, 0, 2 * Math.PI);
+          ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
           ctx.fill();
         }
       });
@@ -1660,7 +1663,7 @@ export default function LiveAnalysis() {
         const landmarks = detection.landmarks;
         const box = detection.detection.box;
 
-        // Draw face bounding box with glow effect - coordinates already in video space
+        // Draw face bounding box with glow effect
         const smoothedBox = smoothFaceBox({
           x: box.x * scaleX,
           y: box.y * scaleY,
@@ -1678,18 +1681,29 @@ export default function LiveAnalysis() {
         // Draw 68 facial landmarks
         const positions = landmarks.positions;
 
-        // Draw landmark points with scaling
+        // Draw landmark points with proper scaling and larger dots
         positions.forEach((point: any) => {
+          const x = point.x * scaleX;
+          const y = point.y * scaleY;
+          
+          // Outer glow
           ctx.beginPath();
-          ctx.arc(point.x * scaleX, point.y * scaleY, 2, 0, 2 * Math.PI);
-          ctx.fillStyle = "rgba(34, 197, 94, 0.9)";
+          ctx.arc(x, y, 4, 0, 2 * Math.PI);
+          ctx.fillStyle = "rgba(34, 197, 94, 0.3)";
+          ctx.fill();
+          
+          // Main dot
+          ctx.beginPath();
+          ctx.arc(x, y, 2.5, 0, 2 * Math.PI);
+          ctx.fillStyle = "rgba(34, 197, 94, 1)";
           ctx.fill();
         });
 
         // Draw facial feature connections for mesh effect
-        // Jawline (0-16)
-        ctx.strokeStyle = "rgba(34, 197, 94, 0.5)";
+        ctx.strokeStyle = "rgba(34, 197, 94, 0.6)";
         ctx.lineWidth = 1.5;
+
+        // Jawline (0-16)
         for (let i = 0; i < 16; i++) {
           ctx.beginPath();
           ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
@@ -1778,7 +1792,7 @@ export default function LiveAnalysis() {
         ctx.stroke();
 
         // Highlight eyes with brighter color
-        ctx.strokeStyle = "rgba(59, 130, 246, 0.7)";
+        ctx.strokeStyle = "rgba(59, 130, 246, 0.8)";
         ctx.lineWidth = 2;
 
         // Left eye highlight
