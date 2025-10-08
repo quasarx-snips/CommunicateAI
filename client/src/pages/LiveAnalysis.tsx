@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Camera, Loader2, ArrowLeft, StopCircle, Activity, Shield, GraduationCap, Briefcase, AlertTriangle, Eye, Zap } from "lucide-react";
+import { Camera, Loader2, ArrowLeft, StopCircle, Activity, GraduationCap, Briefcase, AlertTriangle, Eye, Zap } from "lucide-react";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
@@ -11,7 +11,7 @@ import * as faceapi from "@vladmandic/face-api";
 import { getComposureAdjective } from "@/utils/adjectives";
 import { modelLoader } from "@/lib/modelLoader";
 
-type AnalysisMode = "security" | "education" | "interview" | "expressions" | "composure" | "decoder";
+type AnalysisMode = "education" | "interview" | "expressions" | "composure" | "decoder";
 
 interface EmotionData {
   neutral: number;
@@ -21,16 +21,6 @@ interface EmotionData {
   disgust: number;
   fear: number;
   sad: number;
-}
-
-interface SecurityMetrics {
-  threatLevel: "SAFE" | "CAUTION" | "WARNING" | "CRITICAL";
-  suspiciousScore: number;
-  behaviorFlags: string[];
-  anomalyDetected: boolean;
-  attentionLevel: number;
-  fidgetingScore: number;
-  postureDeviation: number;
 }
 
 interface EducationMetrics {
@@ -55,7 +45,7 @@ interface InterviewMetrics {
 
 export default function LiveAnalysis() {
   const [, setLocation] = useLocation();
-  const [mode, setMode] = useState<AnalysisMode>("security");
+  const [mode, setMode] = useState<AnalysisMode>("education");
   const [isStreaming, setIsStreaming] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [feedback, setFeedback] = useState<string[]>([]);
@@ -63,17 +53,6 @@ export default function LiveAnalysis() {
   const [fps, setFps] = useState(0);
   const [detectorReady, setDetectorReady] = useState(false);
   const [faceDetectorReady, setFaceDetectorReady] = useState(false);
-
-  // Security Mode State
-  const [securityMetrics, setSecurityMetrics] = useState<SecurityMetrics>({
-    threatLevel: "SAFE",
-    suspiciousScore: 0,
-    behaviorFlags: [],
-    anomalyDetected: false,
-    attentionLevel: 0,
-    fidgetingScore: 0,
-    postureDeviation: 0
-  });
 
   // Education Mode State
   const [educationMetrics, setEducationMetrics] = useState<EducationMetrics>({
@@ -746,229 +725,6 @@ export default function LiveAnalysis() {
     }
 
     return Math.max(0, Math.min(100, energyLevel));
-  };
-
-  // SECURITY MODE: Advanced Threat Detection & Behavioral Analysis
-  const analyzeSecurityBehavior = (keypoints: any[], expressions?: any, faceLandmarks?: any): SecurityMetrics => {
-    const getKeypoint = (name: string) => keypoints.find((kp) => kp.name === name);
-
-    const leftWrist = getKeypoint("left_wrist");
-    const rightWrist = getKeypoint("right_wrist");
-    const leftShoulder = getKeypoint("left_shoulder");
-    const rightShoulder = getKeypoint("right_shoulder");
-    const leftHip = getKeypoint("left_hip");
-    const rightHip = getKeypoint("right_hip");
-    const nose = getKeypoint("nose");
-    const leftEye = getKeypoint("left_eye");
-    const rightEye = getKeypoint("right_eye");
-    const leftElbow = getKeypoint("left_elbow");
-    const rightElbow = getKeypoint("right_elbow");
-    const leftKnee = getKeypoint("left_knee");
-    const rightKnee = getKeypoint("right_knee");
-
-    const CONF = 0.5;
-    let suspiciousScore = 0;
-    const behaviorFlags: string[] = [];
-    let anomalyDetected = false;
-
-    // 1. HAND CONCEALMENT & POSITIONING - Real-world threat indicator
-    if (leftWrist && rightWrist && leftHip && rightHip) {
-      const handsHidden = (leftWrist.score < 0.3 && rightWrist.score < 0.3);
-      if (handsHidden) {
-        suspiciousScore += 25;
-        behaviorFlags.push("Hands concealed - potential threat");
-        anomalyDetected = true;
-      }
-
-      // Hands behind back or in pockets
-      if (leftWrist.y > leftHip.y + 0.15 || rightWrist.y > rightHip.y + 0.15) {
-        suspiciousScore += 15;
-        behaviorFlags.push("Hands hidden behind body");
-      }
-
-      // Reaching/touching waistband (weapon access)
-      if (leftWrist && leftHip && leftWrist.score > CONF) {
-        const distToWaist = Math.sqrt(Math.pow(leftWrist.x - leftHip.x, 2) + Math.pow(leftWrist.y - leftHip.y, 2));
-        if (distToWaist < 0.12) {
-          suspiciousScore += 20;
-          behaviorFlags.push("Reaching toward waistband");
-          anomalyDetected = true;
-        }
-      }
-    }
-
-    // 2. BODY MOVEMENT & FIDGETING - Nervousness indicators
-    if (lastPoseRef.current && leftWrist && rightWrist) {
-      const lastLeftWrist = lastPoseRef.current.keypoints.find((kp: any) => kp.name === "left_wrist");
-      const lastRightWrist = lastPoseRef.current.keypoints.find((kp: any) => kp.name === "right_wrist");
-
-      if (lastLeftWrist && lastRightWrist) {
-        const leftMovement = Math.sqrt(Math.pow(leftWrist.x - lastLeftWrist.x, 2) + Math.pow(leftWrist.y - lastLeftWrist.y, 2));
-        const rightMovement = Math.sqrt(Math.pow(rightWrist.x - lastRightWrist.x, 2) + Math.pow(rightWrist.y - lastRightWrist.y, 2));
-
-        if (leftMovement > 0.12 || rightMovement > 0.12) {
-          suspiciousScore += 10;
-          behaviorFlags.push("Excessive hand movement - nervousness");
-        }
-      }
-    }
-
-    // 3. AGGRESSIVE STANCE - Shoulder expansion & posture
-    if (leftShoulder && rightShoulder && leftHip && rightHip) {
-      const shoulderWidth = Math.abs(leftShoulder.x - rightShoulder.x);
-      const hipWidth = Math.abs(leftHip.x - rightHip.x);
-      const shoulderExpansion = shoulderWidth / hipWidth;
-
-      if (shoulderExpansion > 1.3) {
-        suspiciousScore += 20;
-        behaviorFlags.push("Aggressive posture - expanded stance");
-        anomalyDetected = true;
-      }
-
-      // Forward lean (approaching/confrontational)
-      const shoulderMid = { y: (leftShoulder.y + rightShoulder.y) / 2 };
-      const hipMid = { y: (leftHip.y + rightHip.y) / 2 };
-      if (nose && nose.y > shoulderMid.y + 0.08) {
-        suspiciousScore += 12;
-        behaviorFlags.push("Forward lean - confrontational");
-      }
-    }
-
-    // 4. EYE CONTACT & GAZE DIRECTION - Trust indicators
-    if (nose && leftEye && rightEye && leftShoulder && rightShoulder) {
-      const shoulderMid = { x: (leftShoulder.x + rightShoulder.x) / 2 };
-      const faceDeviation = Math.abs(nose.x - shoulderMid.x);
-
-      if (faceDeviation > 0.2) {
-        suspiciousScore += 15;
-        behaviorFlags.push("Avoiding eye contact");
-      }
-
-      // Head down (submission/hiding)
-      if (nose.y > leftShoulder.y + 0.1) {
-        suspiciousScore += 10;
-        behaviorFlags.push("Head down - evasive behavior");
-      }
-    }
-
-    // 5. FACIAL EXPRESSIONS - Emotional state analysis
-    if (expressions) {
-      if (expressions.angry > 0.6) {
-        suspiciousScore += 25;
-        behaviorFlags.push("High anger - aggression risk");
-        anomalyDetected = true;
-      }
-      if (expressions.fear > 0.5) {
-        suspiciousScore += 15;
-        behaviorFlags.push("Fear detected - possible threat response");
-      }
-      if (expressions.disgust > 0.5) {
-        suspiciousScore += 10;
-        behaviorFlags.push("Contempt expression detected");
-      }
-      // Lack of natural expression (overly controlled)
-      if (expressions.neutral > 0.85) {
-        suspiciousScore += 12;
-        behaviorFlags.push("Emotionally flat - deceptive behavior");
-      }
-    }
-
-    // 6. MOVEMENT PATTERNS - Pacing, scanning, restlessness
-    if (leftHip && rightHip && lastPoseRef.current) {
-      const lastLeftHip = lastPoseRef.current.keypoints.find((kp: any) => kp.name === "left_hip");
-      const lastRightHip = lastPoseRef.current.keypoints.find((kp: any) => kp.name === "right_hip");
-
-      if (lastLeftHip && lastRightHip) {
-        const bodyMovement = Math.sqrt(
-          Math.pow(leftHip.x - lastLeftHip.x, 2) + Math.pow(leftHip.y - lastLeftHip.y, 2)
-        );
-
-        if (bodyMovement > 0.08) {
-          suspiciousScore += 8;
-          behaviorFlags.push("Pacing - heightened alertness");
-        }
-      }
-    }
-
-    // 7. WEIGHT SHIFTING - Preparation for action
-    if (leftKnee && rightKnee && leftHip && rightHip) {
-      const leftLegBend = Math.abs(leftKnee.y - leftHip.y);
-      const rightLegBend = Math.abs(rightKnee.y - rightHip.y);
-      const asymmetry = Math.abs(leftLegBend - rightLegBend);
-
-      if (asymmetry > 0.15) {
-        suspiciousScore += 8;
-        behaviorFlags.push("Weight shifting - ready position");
-      }
-    }
-
-    // 8. ARM CROSSING - Defensive barrier
-    if (leftWrist && rightWrist && leftShoulder && rightShoulder) {
-      if (leftWrist.x > rightShoulder.x && rightWrist.x < leftShoulder.x) {
-        suspiciousScore += 10;
-        behaviorFlags.push("Arms crossed - defensive posture");
-      }
-    }
-
-    // 9. ADVANCED FACE ANALYSIS - Micro-expressions and gaze
-    if (faceLandmarks) {
-      const headMovement = analyzeHeadMovement(faceLandmarks);
-      const gazeDirection = analyzeGazeDirection(faceLandmarks);
-      const eyeData = calculateEyeAspectRatio(faceLandmarks);
-      const microExp = analyzeMicroExpressions(expressions);
-
-      // Head shaking (indicating "no" or disagreement)
-      if (headMovement.shaking) {
-        suspiciousScore += 12;
-        behaviorFlags.push("Head shaking - rejection behavior");
-      }
-
-      // Gaze aversion (avoiding direct eye contact)
-      if (gazeDirection !== "center") {
-        suspiciousScore += 10;
-        behaviorFlags.push(`Looking ${gazeDirection} - evasive gaze`);
-      }
-
-      // Excessive blinking (stress/lying indicator)
-      if (eyeData.blinking && eyeAspectRatioHistoryRef.current.filter(ear => ear < 0.2).length > 5) {
-        suspiciousScore += 8;
-        behaviorFlags.push("Excessive blinking - stress detected");
-      }
-
-      // Fear micro-expression
-      if (microExp.fearScore > 40) {
-        suspiciousScore += 15;
-        behaviorFlags.push("Fear micro-expression - threat response");
-        anomalyDetected = true;
-      }
-
-      // High stress indicators
-      if (microExp.stressScore > 60) {
-        suspiciousScore += 20;
-        behaviorFlags.push("High stress levels detected");
-        anomalyDetected = true;
-      }
-    }
-
-    // Calculate threat level
-    let threatLevel: "SAFE" | "CAUTION" | "WARNING" | "CRITICAL" = "SAFE";
-    if (suspiciousScore > 70) threatLevel = "CRITICAL";
-    else if (suspiciousScore > 50) threatLevel = "WARNING";
-    else if (suspiciousScore > 25) threatLevel = "CAUTION";
-
-    const attentionLevel = Math.max(0, 100 - suspiciousScore);
-    const fidgetingScore = Math.min(100, suspiciousScore);
-    const postureDeviation = Math.min(100, suspiciousScore * 0.8);
-
-    return {
-      threatLevel,
-      suspiciousScore: Math.min(100, suspiciousScore),
-      behaviorFlags: behaviorFlags.slice(0, 6),
-      anomalyDetected,
-      attentionLevel,
-      fidgetingScore,
-      postureDeviation
-    };
   };
 
   // EDUCATION MODE: Attention & Engagement Tracking
@@ -1824,145 +1580,6 @@ export default function LiveAnalysis() {
     }
   };
 
-  // SECURITY MODE VISUALIZATION
-  const drawSecurityOverlay = (poses: any[], canvas: HTMLCanvasElement, metrics: SecurityMetrics, scaleX: number = 1, scaleY: number = 1) => {
-    const ctx = canvas.getContext("2d");
-    if (!ctx || !poses.length) return;
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Apply coordinate scaling for proper overlay alignment
-    ctx.save();
-    ctx.scale(scaleX, scaleY);
-
-    const pose = poses[0];
-    const keypoints = pose.keypoints;
-
-    // Draw skeleton with threat-level color coding
-    const threatColors = {
-      SAFE: "rgba(34, 197, 94, 0.9)",
-      CAUTION: "rgba(234, 179, 8, 0.9)",
-      WARNING: "rgba(249, 115, 22, 0.9)",
-      CRITICAL: "rgba(239, 68, 68, 0.9)"
-    };
-
-    const color = threatColors[metrics.threatLevel];
-
-    // Complete skeletal connections including head
-    const connections = [
-      ["nose", "left_eye"],
-      ["nose", "right_eye"],
-      ["left_eye", "left_ear"],
-      ["right_eye", "right_ear"],
-      ["left_shoulder", "right_shoulder"],
-      ["left_shoulder", "left_elbow"],
-      ["right_shoulder", "right_elbow"],
-      ["left_elbow", "left_wrist"],
-      ["right_elbow", "right_wrist"],
-      ["left_shoulder", "left_hip"],
-      ["right_shoulder", "right_hip"],
-      ["left_hip", "right_hip"],
-      ["left_hip", "left_knee"],
-      ["right_hip", "right_knee"],
-      ["left_knee", "left_ankle"],
-      ["right_knee", "right_ankle"],
-    ];
-
-    connections.forEach(([start, end]) => {
-      const startKp = keypoints.find((kp: any) => kp.name === start);
-      const endKp = keypoints.find((kp: any) => kp.name === end);
-
-      if (startKp && endKp && startKp.score > 0.4 && endKp.score > 0.4) {
-        const gradient = ctx.createLinearGradient(startKp.x, startKp.y, endKp.x, endKp.y);
-        gradient.addColorStop(0, color);
-        gradient.addColorStop(1, color.replace('0.9', '0.6'));
-
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = color;
-        ctx.beginPath();
-        ctx.moveTo(startKp.x, startKp.y);
-        ctx.lineTo(endKp.x, endKp.y);
-        ctx.strokeStyle = gradient;
-        ctx.lineWidth = 4;
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-      }
-    });
-
-    // Draw keypoints
-    keypoints.forEach((kp: any) => {
-      if (kp.score > 0.4) {
-        ctx.beginPath();
-        ctx.arc(kp.x, kp.y, 6, 0, 2 * Math.PI);
-        ctx.fillStyle = color;
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = color;
-        ctx.fill();
-        ctx.shadowBlur = 0;
-      }
-    });
-
-    // Face bounding box
-    const getKeypoint = (name: string) => keypoints.find((kp: any) => kp.name === name);
-    const nose = getKeypoint("nose");
-    const leftEye = getKeypoint("left_eye");
-    const rightEye = getKeypoint("right_eye");
-    const leftEar = getKeypoint("left_ear");
-    const rightEar = getKeypoint("right_ear");
-
-    const facePoints = [nose, leftEye, rightEye, leftEar, rightEar].filter(kp => kp && kp.score > 0.5);
-
-    if (facePoints.length >= 3) {
-      const faceXs = facePoints.map((kp: any) => kp.x);
-      const faceYs = facePoints.map((kp: any) => kp.y);
-      const minX = Math.min(...faceXs);
-      const maxX = Math.max(...faceXs);
-      const minY = Math.min(...faceYs);
-      const maxY = Math.max(...faceYs);
-
-      const centerX = (minX + maxX) / 2;
-      const centerY = (minY + maxY) / 2;
-      const rawWidth = (maxX - minX) * 2.5;
-      const rawHeight = (maxY - minY) * 2.8;
-
-      const boxSize = Math.max(rawWidth, rawHeight);
-      const width = boxSize;
-      const height = boxSize * 1.15;
-
-      const boxX = centerX - width / 2;
-      const boxY = centerY - height / 2;
-
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 3;
-      ctx.shadowBlur = 12;
-      ctx.shadowColor = color;
-      ctx.strokeRect(boxX, boxY, width, height);
-      ctx.shadowBlur = 0;
-    }
-
-    // Threat level indicator
-    const threatText = `${metrics.threatLevel} - ${metrics.suspiciousScore}%`;
-    ctx.font = "bold 24px Inter, sans-serif";
-    ctx.textAlign = "center";
-
-    const textWidth = ctx.measureText(threatText).width + 40;
-    const textX = canvas.width / 2;
-    const textY = 50;
-
-    ctx.fillStyle = color;
-    ctx.shadowBlur = 20;
-    ctx.shadowColor = color;
-    ctx.beginPath();
-    ctx.roundRect(textX - textWidth/2, textY - 35, textWidth, 50, 10);
-    ctx.fill();
-    ctx.shadowBlur = 0;
-
-    ctx.fillStyle = "white";
-    ctx.fillText(threatText, textX, textY);
-
-    ctx.restore();
-  };
-
   // EDUCATION MODE VISUALIZATION
   const drawEducationOverlay = (poses: any[], canvas: HTMLCanvasElement, metrics: EducationMetrics, scaleX: number = 1, scaleY: number = 1) => {
     const ctx = canvas.getContext("2d");
@@ -2411,7 +2028,7 @@ export default function LiveAnalysis() {
       const scaleY = 1;
 
       try {
-        if (mode === "security" || mode === "education" || mode === "interview") {
+        if (mode === "education" || mode === "interview") {
           if (!detectorRef.current || !detectorReady) return;
 
           // Smart frame skipping for performance
@@ -2445,13 +2062,7 @@ export default function LiveAnalysis() {
             }
 
             if (poses && poses.length > 0) {
-              if (mode === "security") {
-                const secMetrics = analyzeSecurityBehavior(poses[0].keypoints, expressions, faceLandmarks);
-                setSecurityMetrics(secMetrics);
-
-                // Visual feedback with coordinate scaling
-                drawSecurityOverlay(poses, overlayCanvas, secMetrics, scaleX, scaleY);
-              } else if (mode === "education") {
+              if (mode === "education") {
                 const eduMetrics = analyzeEducationBehavior(poses[0].keypoints, expressions, faceLandmarks);
                 setEducationMetrics(eduMetrics);
 
@@ -2588,7 +2199,7 @@ export default function LiveAnalysis() {
   // No API calls needed - all processing happens in the browser!
 
   const startCamera = async () => {
-    if (mode === "security" || mode === "education" || mode === "interview") {
+    if (mode === "education" || mode === "interview") {
       if (!detectorReady) {
         const initialized = await initializePoseDetector();
         if (!initialized) {
@@ -2693,7 +2304,7 @@ export default function LiveAnalysis() {
   };
 
   useEffect(() => {
-    if (mode === "security" || mode === "education" || mode === "interview") {
+    if (mode === "education" || mode === "interview") {
       // Initialize both pose and face detectors for comprehensive analysis
       initializePoseDetector();
       initializeFaceDetector();
@@ -2765,11 +2376,7 @@ export default function LiveAnalysis() {
 
         <div className="mb-6 flex justify-center">
           <Tabs value={mode} onValueChange={(value) => switchMode(value as AnalysisMode)}>
-            <TabsList className="grid w-full max-w-3xl grid-cols-4">
-              <TabsTrigger value="security" data-testid="tab-security" className="flex items-center gap-2">
-                <Shield className="w-4 h-4" />
-                Security
-              </TabsTrigger>
+            <TabsList className="grid w-full max-w-3xl grid-cols-3">
               <TabsTrigger value="education" data-testid="tab-education" className="flex items-center gap-2">
                 <GraduationCap className="w-4 h-4" />
                 Education
@@ -2852,87 +2459,7 @@ export default function LiveAnalysis() {
           </div>
 
           <div className="space-y-4">
-            {mode === "security" ? (
-              <>
-                <Card className={`p-4 border-2 ${
-                  securityMetrics.threatLevel === "CRITICAL" ? "border-red-500 bg-red-500/10" :
-                  securityMetrics.threatLevel === "WARNING" ? "border-orange-500 bg-orange-500/10" :
-                  securityMetrics.threatLevel === "CAUTION" ? "border-yellow-500 bg-yellow-500/10" :
-                  "border-green-500 bg-green-500/10"
-                }`}>
-                  <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-lg font-semibold flex items-center gap-2">
-                      <Shield className="w-5 h-5" />
-                      Threat Assessment
-                    </h2>
-                    {securityMetrics.anomalyDetected && (
-                      <AlertTriangle className="w-5 h-5 text-red-500 animate-pulse" />
-                    )}
-                  </div>
-                  <div className="space-y-3">
-                    <div>
-                      <div className="text-3xl font-bold text-center" data-testid="threat-level">
-                        {securityMetrics.threatLevel}
-                      </div>
-                      <div className="text-sm text-center text-muted-foreground">
-                        Suspicious Score: {securityMetrics.suspiciousScore}%
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-
-                <Card className="p-4">
-                  <h2 className="text-lg font-semibold mb-3">Behavioral Analysis</h2>
-                  <div className="space-y-3">
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span>Attention Level</span>
-                        <span className="font-semibold">{securityMetrics.attentionLevel}%</span>
-                      </div>
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div className="h-2 rounded-full bg-blue-500" style={{ width: `${securityMetrics.attentionLevel}%` }} />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span>Fidgeting Score</span>
-                        <span className="font-semibold">{securityMetrics.fidgetingScore}%</span>
-                      </div>
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div className="h-2 rounded-full bg-orange-500" style={{ width: `${securityMetrics.fidgetingScore}%` }} />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span>Posture Deviation</span>
-                        <span className="font-semibold">{securityMetrics.postureDeviation}%</span>
-                      </div>
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div className="h-2 rounded-full bg-red-500" style={{ width: `${securityMetrics.postureDeviation}%` }} />
-                      </div>
-                    </div>
-                  </div>
-                </Card>
-
-                <Card className="p-4 bg-black/90 dark:bg-black/95">
-                  <h2 className="text-lg font-semibold mb-3 text-white">Detected Behaviors</h2>
-                  <div className="space-y-2" data-testid="behavior-flags">
-                    {securityMetrics.behaviorFlags.length > 0 ? (
-                      securityMetrics.behaviorFlags.map((flag, index) => (
-                        <div key={index} className="flex items-start gap-2 text-sm text-gray-200 bg-red-900/20 p-2 rounded">
-                          <AlertTriangle className="w-4 h-4 mt-0.5 text-red-400" />
-                          <span>{flag}</span>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-sm text-gray-400 text-center py-4">
-                        {isStreaming ? "No suspicious behavior detected" : "Start camera to begin monitoring"}
-                      </p>
-                    )}
-                  </div>
-                </Card>
-              </>
-            ) : mode === "education" ? (
+            {mode === "education" ? (
               <>
                 <Card className={`p-4 border-2 ${
                   educationMetrics.engagementLevel === "VERY HIGH" ? "border-green-500 bg-green-500/10" :
