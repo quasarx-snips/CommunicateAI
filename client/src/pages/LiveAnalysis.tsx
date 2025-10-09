@@ -1344,73 +1344,37 @@ export default function LiveAnalysis() {
         ["right_knee", "right_ankle"],
       ];
 
+      // Thin skeletal lines matching the screenshot
       connections.forEach(([start, end]) => {
         const startKp = keypoints.find((kp: any) => kp.name === start);
         const endKp = keypoints.find((kp: any) => kp.name === end);
 
         if (startKp && endKp && startKp.score > 0.3 && endKp.score > 0.3) {
-          const gradient = ctx.createLinearGradient(startKp.x, startKp.y, endKp.x, endKp.y);
-          gradient.addColorStop(0, "rgba(59, 130, 246, 0.8)");
-          gradient.addColorStop(0.5, "rgba(124, 58, 237, 0.8)");
-          gradient.addColorStop(1, "rgba(59, 130, 246, 0.8)");
-
           ctx.beginPath();
           ctx.moveTo(startKp.x, startKp.y);
           ctx.lineTo(endKp.x, endKp.y);
-          ctx.strokeStyle = gradient;
-          ctx.lineWidth = 3;
-          ctx.shadowBlur = 8;
-          ctx.shadowColor = "rgba(59, 130, 246, 0.5)";
+          ctx.strokeStyle = "rgba(147, 51, 234, 0.7)";
+          ctx.lineWidth = 1.5;
           ctx.stroke();
-          ctx.shadowBlur = 0;
         }
       });
 
+      // Small, clean keypoint dots
       keypoints.forEach((keypoint: any) => {
         if (keypoint.score > 0.3) {
-          // Outer glow
+          // Small circular keypoint
           ctx.beginPath();
-          ctx.arc(keypoint.x, keypoint.y, 8, 0, 2 * Math.PI);
-          const glowGradient = ctx.createRadialGradient(
-            keypoint.x, keypoint.y, 0,
-            keypoint.x, keypoint.y, 8
-          );
-          glowGradient.addColorStop(0, keypoint.score > 0.6 ? "rgba(34, 197, 94, 0.7)" : "rgba(245, 158, 11, 0.7)");
-          glowGradient.addColorStop(1, "rgba(0, 0, 0, 0)");
-          ctx.fillStyle = glowGradient;
+          ctx.arc(keypoint.x, keypoint.y, 3, 0, 2 * Math.PI);
+          ctx.fillStyle = keypoint.score > 0.6 ? "rgba(147, 51, 234, 0.9)" : "rgba(168, 85, 247, 0.7)";
           ctx.fill();
 
-          // Main dot
+          // Center highlight dot
           ctx.beginPath();
-          ctx.arc(keypoint.x, keypoint.y, 5, 0, 2 * Math.PI);
-          ctx.fillStyle = keypoint.score > 0.6 ? "#22c55e" : "#f59e0b";
-          ctx.fill();
-
-          // Center highlight
-          ctx.beginPath();
-          ctx.arc(keypoint.x, keypoint.y, 2, 0, 2 * Math.PI);
+          ctx.arc(keypoint.x, keypoint.y, 1.5, 0, 2 * Math.PI);
           ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
           ctx.fill();
         }
       });
-
-      const faceLandmarks = ["nose", "left_eye", "right_eye", "left_ear", "right_ear"];
-      const facePoints = faceLandmarks
-        .map(name => keypoints.find((kp: any) => kp.name === name))
-        .filter(kp => kp && kp.score > 0.4);
-
-      if (facePoints.length >= 3) {
-        ctx.beginPath();
-        ctx.strokeStyle = "rgba(167, 139, 250, 0.4)";
-        ctx.lineWidth = 1;
-        for (let i = 0; i < facePoints.length; i++) {
-          const p1 = facePoints[i];
-          const p2 = facePoints[(i + 1) % facePoints.length];
-          ctx.moveTo(p1.x, p1.y);
-          ctx.lineTo(p2.x, p2.y);
-        }
-        ctx.stroke();
-      }
     });
 
     ctx.restore();
@@ -1427,48 +1391,13 @@ export default function LiveAnalysis() {
 
       detections.forEach((detection: any) => {
         const landmarks = detection.landmarks;
-        const box = detection.detection.box;
-
-        // Draw face bounding box with glow effect
-        const smoothedBox = smoothFaceBox({
-          x: box.x * scaleX,
-          y: box.y * scaleY,
-          width: box.width * scaleX,
-          height: box.height * scaleY
-        });
-
-        ctx.strokeStyle = "rgba(34, 197, 94, 0.8)";
-        ctx.lineWidth = 3;
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = "rgba(34, 197, 94, 0.6)";
-        ctx.strokeRect(smoothedBox.x, smoothedBox.y, smoothedBox.width, smoothedBox.height);
-        ctx.shadowBlur = 0;
-
-        // Draw 68 facial landmarks
         const positions = landmarks.positions;
 
-        // Draw landmark points with proper scaling and larger dots
-        positions.forEach((point: any) => {
-          const x = point.x * scaleX;
-          const y = point.y * scaleY;
-          
-          // Outer glow
-          ctx.beginPath();
-          ctx.arc(x, y, 4, 0, 2 * Math.PI);
-          ctx.fillStyle = "rgba(34, 197, 94, 0.3)";
-          ctx.fill();
-          
-          // Main dot
-          ctx.beginPath();
-          ctx.arc(x, y, 2.5, 0, 2 * Math.PI);
-          ctx.fillStyle = "rgba(34, 197, 94, 1)";
-          ctx.fill();
-        });
+        // Thin mesh lines - matching the screenshot
+        ctx.strokeStyle = "rgba(34, 197, 94, 0.5)";
+        ctx.lineWidth = 0.8;
 
-        // Draw facial feature connections for mesh effect
-        ctx.strokeStyle = "rgba(34, 197, 94, 0.6)";
-        ctx.lineWidth = 1.5;
-
+        // Draw all basic facial feature connections
         // Jawline (0-16)
         for (let i = 0; i < 16; i++) {
           ctx.beginPath();
@@ -1557,33 +1486,53 @@ export default function LiveAnalysis() {
         ctx.lineTo(positions[60].x * scaleX, positions[60].y * scaleY);
         ctx.stroke();
 
-        // Highlight eyes with brighter color
-        ctx.strokeStyle = "rgba(59, 130, 246, 0.8)";
-        ctx.lineWidth = 2;
+        // Add cross-connections for complete mesh coverage (like screenshot)
+        // Connect eyebrows to eyes
+        ctx.strokeStyle = "rgba(34, 197, 94, 0.35)";
+        ctx.lineWidth = 0.6;
+        
+        // Left side connections
+        ctx.beginPath(); ctx.moveTo(positions[17].x * scaleX, positions[17].y * scaleY); ctx.lineTo(positions[36].x * scaleX, positions[36].y * scaleY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(positions[19].x * scaleX, positions[19].y * scaleY); ctx.lineTo(positions[37].x * scaleX, positions[37].y * scaleY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(positions[21].x * scaleX, positions[21].y * scaleY); ctx.lineTo(positions[39].x * scaleX, positions[39].y * scaleY); ctx.stroke();
+        
+        // Right side connections
+        ctx.beginPath(); ctx.moveTo(positions[22].x * scaleX, positions[22].y * scaleY); ctx.lineTo(positions[42].x * scaleX, positions[42].y * scaleY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(positions[24].x * scaleX, positions[24].y * scaleY); ctx.lineTo(positions[44].x * scaleX, positions[44].y * scaleY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(positions[26].x * scaleX, positions[26].y * scaleY); ctx.lineTo(positions[45].x * scaleX, positions[45].y * scaleY); ctx.stroke();
 
-        // Left eye highlight
-        ctx.beginPath();
-        for (let i = 36; i <= 41; i++) {
-          if (i === 36) {
-            ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
-          } else {
-            ctx.lineTo(positions[i].x * scaleX, positions[i].y * scaleY);
-          }
-        }
-        ctx.closePath();
-        ctx.stroke();
+        // Connect nose to face structure
+        ctx.beginPath(); ctx.moveTo(positions[27].x * scaleX, positions[27].y * scaleY); ctx.lineTo(positions[21].x * scaleX, positions[21].y * scaleY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(positions[27].x * scaleX, positions[27].y * scaleY); ctx.lineTo(positions[22].x * scaleX, positions[22].y * scaleY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(positions[30].x * scaleX, positions[30].y * scaleY); ctx.lineTo(positions[33].x * scaleX, positions[33].y * scaleY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(positions[31].x * scaleX, positions[31].y * scaleY); ctx.lineTo(positions[35].x * scaleX, positions[35].y * scaleY); ctx.stroke();
 
-        // Right eye highlight
-        ctx.beginPath();
-        for (let i = 42; i <= 47; i++) {
-          if (i === 42) {
-            ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
-          } else {
-            ctx.lineTo(positions[i].x * scaleX, positions[i].y * scaleY);
-          }
-        }
-        ctx.closePath();
-        ctx.stroke();
+        // Connect nose to mouth
+        ctx.beginPath(); ctx.moveTo(positions[33].x * scaleX, positions[33].y * scaleY); ctx.lineTo(positions[51].x * scaleX, positions[51].y * scaleY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(positions[35].x * scaleX, positions[35].y * scaleY); ctx.lineTo(positions[48].x * scaleX, positions[48].y * scaleY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(positions[31].x * scaleX, positions[31].y * scaleY); ctx.lineTo(positions[54].x * scaleX, positions[54].y * scaleY); ctx.stroke();
+
+        // Connect jawline to facial features for complete mesh
+        ctx.beginPath(); ctx.moveTo(positions[0].x * scaleX, positions[0].y * scaleY); ctx.lineTo(positions[36].x * scaleX, positions[36].y * scaleY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(positions[2].x * scaleX, positions[2].y * scaleY); ctx.lineTo(positions[31].x * scaleX, positions[31].y * scaleY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(positions[14].x * scaleX, positions[14].y * scaleY); ctx.lineTo(positions[35].x * scaleX, positions[35].y * scaleY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(positions[16].x * scaleX, positions[16].y * scaleY); ctx.lineTo(positions[45].x * scaleX, positions[45].y * scaleY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(positions[4].x * scaleX, positions[4].y * scaleY); ctx.lineTo(positions[48].x * scaleX, positions[48].y * scaleY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(positions[12].x * scaleX, positions[12].y * scaleY); ctx.lineTo(positions[54].x * scaleX, positions[54].y * scaleY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(positions[6].x * scaleX, positions[6].y * scaleY); ctx.lineTo(positions[48].x * scaleX, positions[48].y * scaleY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(positions[10].x * scaleX, positions[10].y * scaleY); ctx.lineTo(positions[54].x * scaleX, positions[54].y * scaleY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(positions[8].x * scaleX, positions[8].y * scaleY); ctx.lineTo(positions[57].x * scaleX, positions[57].y * scaleY); ctx.stroke();
+
+        // Draw small, subtle landmark points
+        positions.forEach((point: any) => {
+          const x = point.x * scaleX;
+          const y = point.y * scaleY;
+          
+          ctx.beginPath();
+          ctx.arc(x, y, 1.5, 0, 2 * Math.PI);
+          ctx.fillStyle = "rgba(34, 197, 94, 0.8)";
+          ctx.fill();
+        });
       });
     } else {
       setFaceTracking(false);
@@ -1634,77 +1583,36 @@ export default function LiveAnalysis() {
       ["right_knee", "right_ankle"],
     ];
 
+    // Thin skeletal lines
     connections.forEach(([start, end]) => {
       const startKp = keypoints.find((kp: any) => kp.name === start);
       const endKp = keypoints.find((kp: any) => kp.name === end);
 
       if (startKp && endKp && startKp.score > 0.4 && endKp.score > 0.4) {
-        const gradient = ctx.createLinearGradient(startKp.x, startKp.y, endKp.x, endKp.y);
-        gradient.addColorStop(0, color);
-        gradient.addColorStop(1, color.replace('0.9', '0.6'));
-
-        ctx.shadowBlur = 12;
-        ctx.shadowColor = color;
         ctx.beginPath();
         ctx.moveTo(startKp.x, startKp.y);
         ctx.lineTo(endKp.x, endKp.y);
-        ctx.strokeStyle = gradient;
-        ctx.lineWidth = 3;
+        ctx.strokeStyle = color.replace('0.9', '0.7');
+        ctx.lineWidth = 1.5;
         ctx.stroke();
-        ctx.shadowBlur = 0;
       }
     });
 
-    // Draw keypoints
+    // Small, clean keypoints
     keypoints.forEach((kp: any) => {
       if (kp.score > 0.4) {
         ctx.beginPath();
-        ctx.arc(kp.x, kp.y, 6, 0, 2 * Math.PI);
+        ctx.arc(kp.x, kp.y, 3, 0, 2 * Math.PI);
         ctx.fillStyle = color;
-        ctx.shadowBlur = 8;
-        ctx.shadowColor = color;
         ctx.fill();
-        ctx.shadowBlur = 0;
+        
+        ctx.beginPath();
+        ctx.arc(kp.x, kp.y, 1.5, 0, 2 * Math.PI);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+        ctx.fill();
       }
     });
 
-    // Face bounding box
-    const getKeypoint = (name: string) => keypoints.find((kp: any) => kp.name === name);
-    const nose = getKeypoint("nose");
-    const leftEye = getKeypoint("left_eye");
-    const rightEye = getKeypoint("right_eye");
-    const leftEar = getKeypoint("left_ear");
-    const rightEar = getKeypoint("right_ear");
-
-    const facePoints = [nose, leftEye, rightEye, leftEar, rightEar].filter(kp => kp && kp.score > 0.5);
-
-    if (facePoints.length >= 3) {
-      const faceXs = facePoints.map((kp: any) => kp.x);
-      const faceYs = facePoints.map((kp: any) => kp.y);
-      const minX = Math.min(...faceXs);
-      const maxX = Math.max(...faceXs);
-      const minY = Math.min(...faceYs);
-      const maxY = Math.max(...faceYs);
-
-      const centerX = (minX + maxX) / 2;
-      const centerY = (minY + maxY) / 2;
-      const rawWidth = (maxX - minX) * 2.5;
-      const rawHeight = (maxY - minY) * 2.8;
-
-      const boxSize = Math.max(rawWidth, rawHeight);
-      const width = boxSize;
-      const height = boxSize * 1.15;
-
-      const boxX = centerX - width / 2;
-      const boxY = centerY - height / 2;
-
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 3;
-      ctx.shadowBlur = 12;
-      ctx.shadowColor = color;
-      ctx.strokeRect(boxX, boxY, width, height);
-      ctx.shadowBlur = 0;
-    }
 
     // Attention score display
     const scoreText = `${metrics.engagementLevel} - ${metrics.attentionScore}%`;
@@ -1767,37 +1675,33 @@ export default function LiveAnalysis() {
       ["left_hip", "right_hip"],
     ];
 
+    // Thin skeletal lines
     connections.forEach(([start, end]) => {
       const startKp = keypoints.find((kp: any) => kp.name === start);
       const endKp = keypoints.find((kp: any) => kp.name === end);
 
       if (startKp && endKp && startKp.score > 0.4 && endKp.score > 0.4) {
-        const gradient = ctx.createLinearGradient(startKp.x, startKp.y, endKp.x, endKp.y);
-        gradient.addColorStop(0, color);
-        gradient.addColorStop(1, color.replace('0.9', '0.6'));
-
-        ctx.shadowBlur = 14;
-        ctx.shadowColor = color;
         ctx.beginPath();
         ctx.moveTo(startKp.x, startKp.y);
         ctx.lineTo(endKp.x, endKp.y);
-        ctx.strokeStyle = gradient;
-        ctx.lineWidth = 3.5;
+        ctx.strokeStyle = color.replace('0.9', '0.7');
+        ctx.lineWidth = 1.5;
         ctx.stroke();
-        ctx.shadowBlur = 0;
       }
     });
 
-    // Keypoints
+    // Small, clean keypoints
     keypoints.forEach((kp: any) => {
       if (kp.score > 0.4) {
         ctx.beginPath();
-        ctx.arc(kp.x, kp.y, 6, 0, 2 * Math.PI);
+        ctx.arc(kp.x, kp.y, 3, 0, 2 * Math.PI);
         ctx.fillStyle = color;
-        ctx.shadowBlur = 8;
-        ctx.shadowColor = color;
         ctx.fill();
-        ctx.shadowBlur = 0;
+        
+        ctx.beginPath();
+        ctx.arc(kp.x, kp.y, 1.5, 0, 2 * Math.PI);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+        ctx.fill();
       }
     });
 
@@ -1859,49 +1763,33 @@ export default function LiveAnalysis() {
         ["right_knee", "right_ankle"],
       ];
 
-      // Draw glowing skeletal lines with gradient
+      // Thin skeletal lines
       connections.forEach(([start, end]) => {
         const startKp = getKeypoint(start);
         const endKp = getKeypoint(end);
 
         if (startKp && endKp && startKp.score > 0.4 && endKp.score > 0.4) {
-          // Glow effect
-          ctx.shadowBlur = 12;
-          ctx.shadowColor = "rgba(34, 197, 94, 0.6)";
-
-          // Gradient line
-          const gradient = ctx.createLinearGradient(startKp.x, startKp.y, endKp.x, endKp.y);
-          gradient.addColorStop(0, "rgba(34, 197, 94, 0.9)");
-          gradient.addColorStop(0.5, "rgba(16, 185, 129, 0.9)");
-          gradient.addColorStop(1, "rgba(34, 197, 94, 0.9)");
-
           ctx.beginPath();
           ctx.moveTo(startKp.x, startKp.y);
           ctx.lineTo(endKp.x, endKp.y);
-          ctx.strokeStyle = gradient;
-          ctx.lineWidth = 3;
+          ctx.strokeStyle = "rgba(34, 197, 94, 0.7)";
+          ctx.lineWidth = 1.5;
           ctx.stroke();
 
           ctx.shadowBlur = 0;
         }
       });
 
-      // Draw enhanced keypoints with glow
+      // Small, clean keypoints
       keypoints.forEach((keypoint: any) => {
         if (keypoint.score > 0.4) {
-          // Outer glow
-          ctx.shadowBlur = 10;
-          ctx.shadowColor = keypoint.score > 0.7 ? "rgba(34, 197, 94, 0.8)" : "rgba(251, 191, 36, 0.8)";
-
-          ctx.beginPath();
-          ctx.arc(keypoint.x, keypoint.y, 6, 0, 2 * Math.PI);
-          ctx.fillStyle = keypoint.score > 0.7 ? "rgba(34, 197, 94, 0.9)" : "rgba(251, 191, 36, 0.9)";
-          ctx.fill();
-
-          // Inner bright core
-          ctx.shadowBlur = 0;
           ctx.beginPath();
           ctx.arc(keypoint.x, keypoint.y, 3, 0, 2 * Math.PI);
+          ctx.fillStyle = keypoint.score > 0.7 ? "rgba(34, 197, 94, 0.9)" : "rgba(168, 85, 247, 0.7)";
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(keypoint.x, keypoint.y, 1.5, 0, 2 * Math.PI);
           ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
           ctx.fill();
         }
