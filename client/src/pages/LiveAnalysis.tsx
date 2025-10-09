@@ -1393,144 +1393,49 @@ export default function LiveAnalysis() {
         const landmarks = detection.landmarks;
         const positions = landmarks.positions;
 
-        // Thin mesh lines - matching the screenshot
-        ctx.strokeStyle = "rgba(34, 197, 94, 0.5)";
-        ctx.lineWidth = 0.8;
+        // Enhanced mesh with all-to-all connections
+        ctx.strokeStyle = "rgba(34, 197, 94, 0.3)";
+        ctx.lineWidth = 1;
 
-        // Draw all basic facial feature connections
-        // Jawline (0-16)
-        for (let i = 0; i < 16; i++) {
-          ctx.beginPath();
-          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
-          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
-          ctx.stroke();
+        // Draw connections between ALL dots for complete mesh
+        for (let i = 0; i < positions.length; i++) {
+          for (let j = i + 1; j < positions.length; j++) {
+            const distance = Math.sqrt(
+              Math.pow(positions[i].x - positions[j].x, 2) + 
+              Math.pow(positions[i].y - positions[j].y, 2)
+            );
+            
+            // Only connect nearby points to avoid clutter (within 80 pixels)
+            if (distance < 80) {
+              ctx.beginPath();
+              ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
+              ctx.lineTo(positions[j].x * scaleX, positions[j].y * scaleY);
+              ctx.stroke();
+            }
+          }
         }
 
-        // Left eyebrow (17-21)
-        for (let i = 17; i < 21; i++) {
-          ctx.beginPath();
-          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
-          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
-          ctx.stroke();
-        }
-
-        // Right eyebrow (22-26)
-        for (let i = 22; i < 26; i++) {
-          ctx.beginPath();
-          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
-          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
-          ctx.stroke();
-        }
-
-        // Nose bridge (27-30)
-        for (let i = 27; i < 30; i++) {
-          ctx.beginPath();
-          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
-          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
-          ctx.stroke();
-        }
-
-        // Nose bottom (31-35)
-        for (let i = 31; i < 35; i++) {
-          ctx.beginPath();
-          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
-          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
-          ctx.stroke();
-        }
-
-        // Left eye (36-41)
-        for (let i = 36; i < 41; i++) {
-          ctx.beginPath();
-          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
-          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
-          ctx.stroke();
-        }
-        ctx.beginPath();
-        ctx.moveTo(positions[41].x * scaleX, positions[41].y * scaleY);
-        ctx.lineTo(positions[36].x * scaleX, positions[36].y * scaleY);
-        ctx.stroke();
-
-        // Right eye (42-47)
-        for (let i = 42; i < 47; i++) {
-          ctx.beginPath();
-          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
-          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
-          ctx.stroke();
-        }
-        ctx.beginPath();
-        ctx.moveTo(positions[47].x * scaleX, positions[47].y * scaleY);
-        ctx.lineTo(positions[42].x * scaleX, positions[42].y * scaleY);
-        ctx.stroke();
-
-        // Outer lip (48-59)
-        for (let i = 48; i < 59; i++) {
-          ctx.beginPath();
-          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
-          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
-          ctx.stroke();
-        }
-        ctx.beginPath();
-        ctx.moveTo(positions[59].x * scaleX, positions[59].y * scaleY);
-        ctx.lineTo(positions[48].x * scaleX, positions[48].y * scaleY);
-        ctx.stroke();
-
-        // Inner lip (60-67)
-        for (let i = 60; i < 67; i++) {
-          ctx.beginPath();
-          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
-          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
-          ctx.stroke();
-        }
-        ctx.beginPath();
-        ctx.moveTo(positions[67].x * scaleX, positions[67].y * scaleY);
-        ctx.lineTo(positions[60].x * scaleX, positions[60].y * scaleY);
-        ctx.stroke();
-
-        // Add cross-connections for complete mesh coverage (like screenshot)
-        // Connect eyebrows to eyes
-        ctx.strokeStyle = "rgba(34, 197, 94, 0.35)";
-        ctx.lineWidth = 0.6;
-
-        // Left side connections
-        ctx.beginPath(); ctx.moveTo(positions[17].x * scaleX, positions[17].y * scaleY); ctx.lineTo(positions[36].x * scaleX, positions[36].y * scaleY); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(positions[19].x * scaleX, positions[19].y * scaleY); ctx.lineTo(positions[37].x * scaleX, positions[37].y * scaleY); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(positions[21].x * scaleX, positions[21].y * scaleY); ctx.lineTo(positions[39].x * scaleX, positions[39].y * scaleY); ctx.stroke();
-
-        // Right side connections
-        ctx.beginPath(); ctx.moveTo(positions[22].x * scaleX, positions[22].y * scaleY); ctx.lineTo(positions[42].x * scaleX, positions[42].y * scaleY); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(positions[24].x * scaleX, positions[24].y * scaleY); ctx.lineTo(positions[44].x * scaleX, positions[44].y * scaleY); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(positions[26].x * scaleX, positions[26].y * scaleY); ctx.lineTo(positions[45].x * scaleX, positions[45].y * scaleY); ctx.stroke();
-
-        // Connect nose to face structure
-        ctx.beginPath(); ctx.moveTo(positions[27].x * scaleX, positions[27].y * scaleY); ctx.lineTo(positions[21].x * scaleX, positions[21].y * scaleY); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(positions[27].x * scaleX, positions[27].y * scaleY); ctx.lineTo(positions[22].x * scaleX, positions[22].y * scaleY); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(positions[30].x * scaleX, positions[30].y * scaleY); ctx.lineTo(positions[33].x * scaleX, positions[33].y * scaleY); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(positions[31].x * scaleX, positions[31].y * scaleY); ctx.lineTo(positions[35].x * scaleX, positions[35].y * scaleY); ctx.stroke();
-
-        // Connect nose to mouth
-        ctx.beginPath(); ctx.moveTo(positions[33].x * scaleX, positions[33].y * scaleY); ctx.lineTo(positions[51].x * scaleX, positions[51].y * scaleY); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(positions[35].x * scaleX, positions[35].y * scaleY); ctx.lineTo(positions[48].x * scaleX, positions[48].y * scaleY); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(positions[31].x * scaleX, positions[31].y * scaleY); ctx.lineTo(positions[54].x * scaleX, positions[54].y * scaleY); ctx.stroke();
-
-        // Connect jawline to facial features for complete mesh
-        ctx.beginPath(); ctx.moveTo(positions[0].x * scaleX, positions[0].y * scaleY); ctx.lineTo(positions[36].x * scaleX, positions[36].y * scaleY); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(positions[2].x * scaleX, positions[2].y * scaleY); ctx.lineTo(positions[31].x * scaleX, positions[31].y * scaleY); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(positions[14].x * scaleX, positions[14].y * scaleY); ctx.lineTo(positions[35].x * scaleX, positions[35].y * scaleY); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(positions[16].x * scaleX, positions[16].y * scaleY); ctx.lineTo(positions[45].x * scaleX, positions[45].y * scaleY); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(positions[4].x * scaleX, positions[4].y * scaleY); ctx.lineTo(positions[48].x * scaleX, positions[48].y * scaleY); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(positions[12].x * scaleX, positions[12].y * scaleY); ctx.lineTo(positions[54].x * scaleX, positions[54].y * scaleY); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(positions[6].x * scaleX, positions[6].y * scaleY); ctx.lineTo(positions[48].x * scaleX, positions[48].y * scaleY); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(positions[10].x * scaleX, positions[10].y * scaleY); ctx.lineTo(positions[54].x * scaleX, positions[54].y * scaleY); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(positions[8].x * scaleX, positions[8].y * scaleY); ctx.lineTo(positions[57].x * scaleX, positions[57].y * scaleY); ctx.stroke();
-
-        // Draw small, subtle landmark points
+        // Draw enhanced dots with better visibility
         positions.forEach((point: any) => {
           const x = point.x * scaleX;
           const y = point.y * scaleY;
 
+          // Outer glow
           ctx.beginPath();
-          ctx.arc(x, y, 1.5, 0, 2 * Math.PI);
-          ctx.fillStyle = "rgba(34, 197, 94, 0.8)";
+          ctx.arc(x, y, 3, 0, 2 * Math.PI);
+          ctx.fillStyle = "rgba(34, 197, 94, 0.4)";
+          ctx.fill();
+
+          // Main dot
+          ctx.beginPath();
+          ctx.arc(x, y, 2, 0, 2 * Math.PI);
+          ctx.fillStyle = "rgba(34, 197, 94, 0.9)";
+          ctx.fill();
+
+          // Center highlight
+          ctx.beginPath();
+          ctx.arc(x, y, 1, 0, 2 * Math.PI);
+          ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
           ctx.fill();
         });
       });
@@ -2623,7 +2528,7 @@ Generated by ComposureSense v1.0
 
         <div className="mb-6 flex justify-center">
           <Tabs value={mode} onValueChange={(value) => switchMode(value as AnalysisMode)}>
-            <TabsList className="grid w-full max-w-3xl grid-cols-3">
+            <TabsList className="grid w-full max-w-5xl grid-cols-5">
               <TabsTrigger value="education" data-testid="tab-education" className="flex items-center gap-2">
                 <GraduationCap className="w-4 h-4" />
                 Education
@@ -2635,6 +2540,14 @@ Generated by ComposureSense v1.0
               <TabsTrigger value="expressions" data-testid="tab-expressions" className="flex items-center gap-2">
                 <Eye className="w-4 h-4" />
                 Expressions
+              </TabsTrigger>
+              <TabsTrigger value="composure" data-testid="tab-composure" className="flex items-center gap-2">
+                <Activity className="w-4 h-4" />
+                Composure
+              </TabsTrigger>
+              <TabsTrigger value="decoder" data-testid="tab-decoder" className="flex items-center gap-2">
+                <Zap className="w-4 h-4" />
+                Decoder
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -2649,7 +2562,7 @@ Generated by ComposureSense v1.0
                   autoPlay
                   playsInline
                   muted
-                  className="w-full h-full object-contain"
+                  className="w-full h-full object-contain brightness-[0.6]"
                   data-testid="video-feed"
                 />
                 <canvas
