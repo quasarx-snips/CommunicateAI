@@ -331,8 +331,8 @@ export default function LiveAnalysis() {
     const feedbackMessages: string[] = [];
 
     // 1. SPINAL ALIGNMENT - Based on research paper's postural biomechanics
-    if (leftShoulder && rightShoulder && leftHip && rightHip && 
-        leftShoulder.score > CONFIDENCE_THRESHOLD && rightShoulder.score > CONFIDENCE_THRESHOLD && 
+    if (leftShoulder && rightShoulder && leftHip && rightHip &&
+        leftShoulder.score > CONFIDENCE_THRESHOLD && rightShoulder.score > CONFIDENCE_THRESHOLD &&
         leftHip.score > CONFIDENCE_THRESHOLD && rightHip.score > CONFIDENCE_THRESHOLD) {
 
       const shoulderMid = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
@@ -433,7 +433,7 @@ export default function LiveAnalysis() {
 
     // 4. OVERALL UPRIGHTNESS - Body angle indicates engagement
     if (leftShoulder && rightShoulder && leftHip && rightHip && nose &&
-        leftShoulder.score > CONFIDENCE_THRESHOLD && rightShoulder.score > CONFIDENCE_THRESHOLD && 
+        leftShoulder.score > CONFIDENCE_THRESHOLD && rightShoulder.score > CONFIDENCE_THRESHOLD &&
         leftHip.score > CONFIDENCE_THRESHOLD && rightHip.score > CONFIDENCE_THRESHOLD && nose.score > 0.6) {
 
       const shoulderMid = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
@@ -457,8 +457,8 @@ export default function LiveAnalysis() {
 
     // 5. PROFESSIONAL PRESENCE SCORE - Overall composure indicator (only high confidence keypoints)
     const highConfidenceKeypoints = keypoints.filter(kp => kp.score > CONFIDENCE_THRESHOLD);
-    const avgConfidence = highConfidenceKeypoints.length > 0 
-      ? highConfidenceKeypoints.reduce((sum, kp) => sum + kp.score, 0) / highConfidenceKeypoints.length 
+    const avgConfidence = highConfidenceKeypoints.length > 0
+      ? highConfidenceKeypoints.reduce((sum, kp) => sum + kp.score, 0) / highConfidenceKeypoints.length
       : 0;
     const visibility = avgConfidence * 100;
 
@@ -473,12 +473,12 @@ export default function LiveAnalysis() {
     }
 
     // Calculate overall composure score
-    const avgScore = metrics.length > 0 
-      ? metrics.reduce((sum, m) => sum + m.value, 0) / metrics.length 
+    const avgScore = metrics.length > 0
+      ? metrics.reduce((sum, m) => sum + m.value, 0) / metrics.length
       : 0;
 
-    return { 
-      metrics, 
+    return {
+      metrics,
       feedback: feedbackMessages.slice(0, 3),
       composureScore: Math.round(avgScore)
     };
@@ -495,14 +495,14 @@ export default function LiveAnalysis() {
     const rightShoulder = getKeypoint("right_shoulder");
     const nose = getKeypoint("nose");
 
-    if (rightWrist && rightElbow && rightShoulder && 
+    if (rightWrist && rightElbow && rightShoulder &&
         rightWrist.score > 0.5 && rightElbow.score > 0.5 && rightShoulder.score > 0.5) {
       if (rightWrist.y < rightElbow.y && rightWrist.y < rightShoulder.y) {
         return "👋 Waving Right Hand";
       }
     }
 
-    if (leftWrist && leftElbow && leftShoulder && 
+    if (leftWrist && leftElbow && leftShoulder &&
         leftWrist.score > 0.5 && leftElbow.score > 0.5 && leftShoulder.score > 0.5) {
       if (leftWrist.y < leftElbow.y && leftWrist.y < leftShoulder.y) {
         return "👋 Waving Left Hand";
@@ -711,7 +711,7 @@ export default function LiveAnalysis() {
     const rightShoulder = getKeypoint("right_shoulder");
 
     if (leftWrist && rightWrist && leftShoulder && rightShoulder) {
-      const wristMovement = lastPoseRef.current ? 
+      const wristMovement = lastPoseRef.current ?
         Math.sqrt(
           Math.pow((leftWrist.x - (lastPoseRef.current.keypoints.find((k: any) => k.name === "left_wrist")?.x || leftWrist.x)), 2) +
           Math.pow((rightWrist.x - (lastPoseRef.current.keypoints.find((k: any) => k.name === "right_wrist")?.x || rightWrist.x)), 2)
@@ -1178,7 +1178,7 @@ export default function LiveAnalysis() {
     }
 
     // Pointing gesture
-    if (rightWrist && rightElbow && rightShoulder && 
+    if (rightWrist && rightElbow && rightShoulder &&
         rightWrist.score > CONF && rightElbow.score > CONF) {
       const armAngle = Math.atan2(rightWrist.y - rightElbow.y, rightWrist.x - rightElbow.x);
       if (rightWrist.x > rightElbow.x && Math.abs(armAngle) < 0.5) {
@@ -1401,10 +1401,10 @@ export default function LiveAnalysis() {
         for (let i = 0; i < positions.length; i++) {
           for (let j = i + 1; j < positions.length; j++) {
             const distance = Math.sqrt(
-              Math.pow(positions[i].x - positions[j].x, 2) + 
+              Math.pow(positions[i].x - positions[j].x, 2) +
               Math.pow(positions[i].y - positions[j].y, 2)
             );
-            
+
             // Only connect nearby points to avoid clutter (within 80 pixels)
             if (distance < 80) {
               ctx.beginPath();
@@ -1941,6 +1941,7 @@ export default function LiveAnalysis() {
           // Optimized frame skipping: process every 3rd frame when stable for better performance
           const currentFrameCount = frameSkipCounterRef.current;
           const shouldProcess = !isStable || currentFrameCount % 3 === 0;
+          const runFaceDetection = currentFrameCount % 4 === 0;
           frameSkipCounterRef.current++;
 
           if (shouldProcess) {
@@ -1948,7 +1949,22 @@ export default function LiveAnalysis() {
             const poses = await detectorRef.current.estimatePoses(video, {
               flipHorizontal: false,
             });
-            performanceStatsRef.current.poseTime = performance.now() - frameStart;
+            performanceStatsRef.current.poseTime = performance.now() - poseStart;
+
+            // Also get face mesh
+            let faceDetections = null;
+            if (faceApiLoadedRef.current && faceDetectorReady && runFaceDetection) {
+              const detections = await faceapi
+                .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({
+                  inputSize: 224,
+                  scoreThreshold: 0.4
+                }))
+                .withFaceLandmarks();
+
+              if (detections && detections.length > 0) {
+                faceDetections = detections;
+              }
+            }
 
             if (poses && poses.length > 0) {
               const { metrics: rawMetrics, feedback: newFeedback, composureScore: rawScore } = calculatePostureMetrics(
@@ -1966,6 +1982,12 @@ export default function LiveAnalysis() {
               setCurrentAdjective(stableAdjective);
               setIsStable(readingIsStable && metricsHistoryRef.current.length >= 5);
 
+              // Draw face mesh FIRST
+              if (faceDetections) {
+                drawFaceMesh(faceDetections, overlayCanvas, scaleX, scaleY);
+              }
+
+              // Draw skeleton OVER it
               drawComposureAnalysis(poses, overlayCanvas, stableAdjective, scaleX, scaleY);
 
               const gesture = detectGesture(poses[0].keypoints);
@@ -1981,6 +2003,7 @@ export default function LiveAnalysis() {
           // Optimized frame skipping for decoder mode
           const currentFrameCount = frameSkipCounterRef.current;
           const shouldProcess = currentFrameCount % 2 === 0;
+          const runFaceDetection = currentFrameCount % 4 === 0;
           frameSkipCounterRef.current++;
 
           if (shouldProcess) {
@@ -1988,7 +2011,22 @@ export default function LiveAnalysis() {
             const poses = await detectorRef.current.estimatePoses(video, {
               flipHorizontal: false,
             });
-            performanceStatsRef.current.poseTime = performance.now() - frameStart;
+            performanceStatsRef.current.poseTime = performance.now() - poseStart;
+
+            // Also get face mesh
+            let faceDetections = null;
+            if (faceApiLoadedRef.current && faceDetectorReady && runFaceDetection) {
+              const detections = await faceapi
+                .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({
+                  inputSize: 224,
+                  scoreThreshold: 0.4
+                }))
+                .withFaceLandmarks();
+
+              if (detections && detections.length > 0) {
+                faceDetections = detections;
+              }
+            }
 
             if (poses && poses.length > 0) {
               const decodedText = decodeBodyLanguage(poses[0].keypoints);
@@ -2001,6 +2039,13 @@ export default function LiveAnalysis() {
               }
 
               setCurrentDecoding(decodedText);
+
+              // Draw face mesh FIRST
+              if (faceDetections) {
+                drawFaceMesh(faceDetections, overlayCanvas, scaleX, scaleY);
+              }
+
+              // Draw skeleton OVER it
               drawPoseLandmarks(poses, overlayCanvas, scaleX, scaleY);
               lastPoseRef.current = poses[0];
             } else {
@@ -2048,8 +2093,8 @@ export default function LiveAnalysis() {
 
   const calculateSessionSummary = (): LiveSessionResult => {
     const avgMetrics = metrics.map(m => ({ label: m.label, value: m.value, color: m.color }));
-    const overallScore = metrics.length > 0 
-      ? Math.round(metrics.reduce((sum, m) => sum + m.value, 0) / metrics.length) 
+    const overallScore = metrics.length > 0
+      ? Math.round(metrics.reduce((sum, m) => sum + m.value, 0) / metrics.length)
       : 0;
 
     const rating = overallScore >= 80 ? "excellent" : overallScore >= 65 ? "good" : overallScore >= 50 ? "fair" : "poor";
@@ -2362,8 +2407,8 @@ Generated by ComposureSense v1.0
     try {
       // Optimized video settings for mobile devices
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { 
-          facingMode: "user", 
+        video: {
+          facingMode: "user",
           width: { ideal: 640 },  // Lower resolution for better mobile performance
           height: { ideal: 480 },
         },
