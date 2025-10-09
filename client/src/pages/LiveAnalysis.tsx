@@ -1490,12 +1490,12 @@ export default function LiveAnalysis() {
         // Connect eyebrows to eyes
         ctx.strokeStyle = "rgba(34, 197, 94, 0.35)";
         ctx.lineWidth = 0.6;
-        
+
         // Left side connections
         ctx.beginPath(); ctx.moveTo(positions[17].x * scaleX, positions[17].y * scaleY); ctx.lineTo(positions[36].x * scaleX, positions[36].y * scaleY); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(positions[19].x * scaleX, positions[19].y * scaleY); ctx.lineTo(positions[37].x * scaleX, positions[37].y * scaleY); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(positions[21].x * scaleX, positions[21].y * scaleY); ctx.lineTo(positions[39].x * scaleX, positions[39].y * scaleY); ctx.stroke();
-        
+
         // Right side connections
         ctx.beginPath(); ctx.moveTo(positions[22].x * scaleX, positions[22].y * scaleY); ctx.lineTo(positions[42].x * scaleX, positions[42].y * scaleY); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(positions[24].x * scaleX, positions[24].y * scaleY); ctx.lineTo(positions[44].x * scaleX, positions[44].y * scaleY); ctx.stroke();
@@ -1527,7 +1527,7 @@ export default function LiveAnalysis() {
         positions.forEach((point: any) => {
           const x = point.x * scaleX;
           const y = point.y * scaleY;
-          
+
           ctx.beginPath();
           ctx.arc(x, y, 1.5, 0, 2 * Math.PI);
           ctx.fillStyle = "rgba(34, 197, 94, 0.8)";
@@ -1583,7 +1583,7 @@ export default function LiveAnalysis() {
       ["right_knee", "right_ankle"],
     ];
 
-    // Thin skeletal lines
+    // Dark, thick skeletal lines for better visibility
     connections.forEach(([start, end]) => {
       const startKp = keypoints.find((kp: any) => kp.name === start);
       const endKp = keypoints.find((kp: any) => kp.name === end);
@@ -1592,23 +1592,23 @@ export default function LiveAnalysis() {
         ctx.beginPath();
         ctx.moveTo(startKp.x, startKp.y);
         ctx.lineTo(endKp.x, endKp.y);
-        ctx.strokeStyle = color.replace('0.9', '0.7');
-        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = color.replace('0.9', '1'); // Full opacity
+        ctx.lineWidth = 3;
         ctx.stroke();
       }
     });
 
-    // Small, clean keypoints
+    // Larger, more visible keypoints
     keypoints.forEach((kp: any) => {
       if (kp.score > 0.4) {
         ctx.beginPath();
-        ctx.arc(kp.x, kp.y, 3, 0, 2 * Math.PI);
+        ctx.arc(kp.x, kp.y, 5, 0, 2 * Math.PI);
         ctx.fillStyle = color;
         ctx.fill();
-        
+
         ctx.beginPath();
-        ctx.arc(kp.x, kp.y, 1.5, 0, 2 * Math.PI);
-        ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+        ctx.arc(kp.x, kp.y, 2.5, 0, 2 * Math.PI);
+        ctx.fillStyle = "rgba(255, 255, 255, 1)";
         ctx.fill();
       }
     });
@@ -1675,7 +1675,7 @@ export default function LiveAnalysis() {
       ["left_hip", "right_hip"],
     ];
 
-    // Thin skeletal lines
+    // Dark, thick skeletal lines for better visibility
     connections.forEach(([start, end]) => {
       const startKp = keypoints.find((kp: any) => kp.name === start);
       const endKp = keypoints.find((kp: any) => kp.name === end);
@@ -1684,23 +1684,23 @@ export default function LiveAnalysis() {
         ctx.beginPath();
         ctx.moveTo(startKp.x, startKp.y);
         ctx.lineTo(endKp.x, endKp.y);
-        ctx.strokeStyle = color.replace('0.9', '0.7');
-        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = color.replace('0.9', '1'); // Full opacity
+        ctx.lineWidth = 3;
         ctx.stroke();
       }
     });
 
-    // Small, clean keypoints
+    // Larger, more visible keypoints
     keypoints.forEach((kp: any) => {
       if (kp.score > 0.4) {
         ctx.beginPath();
-        ctx.arc(kp.x, kp.y, 3, 0, 2 * Math.PI);
+        ctx.arc(kp.x, kp.y, 5, 0, 2 * Math.PI);
         ctx.fillStyle = color;
         ctx.fill();
-        
+
         ctx.beginPath();
-        ctx.arc(kp.x, kp.y, 1.5, 0, 2 * Math.PI);
-        ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+        ctx.arc(kp.x, kp.y, 2.5, 0, 2 * Math.PI);
+        ctx.fillStyle = "rgba(255, 255, 255, 1)";
         ctx.fill();
       }
     });
@@ -1941,7 +1941,7 @@ export default function LiveAnalysis() {
 
           if (shouldProcess) {
             const frameStart = performance.now();
-            
+
             // Pose detection with timing
             const poseStart = performance.now();
             const poses = await detectorRef.current.estimatePoses(video, {
@@ -1952,7 +1952,7 @@ export default function LiveAnalysis() {
             // Optimized facial analysis (run less frequently for better performance)
             let expressions = null;
             let faceLandmarks = null;
-            
+
             if (faceApiLoadedRef.current && faceDetectorReady && runFaceDetection) {
               const faceStart = performance.now();
               const detections = await faceapi
@@ -2007,7 +2007,7 @@ export default function LiveAnalysis() {
             }))
             .withFaceLandmarks()
             .withFaceExpressions();
-          
+
           performanceStatsRef.current.faceTime = performance.now() - frameStart;
 
           if (detections && detections.length > 0) {
@@ -2271,7 +2271,7 @@ export default function LiveAnalysis() {
       const dataStr = JSON.stringify(exportData, null, 2);
       const dataBlob = new Blob([dataStr], { type: 'application/json' });
       const url = URL.createObjectURL(dataBlob);
-      
+
       const link = document.createElement('a');
       link.href = url;
       link.download = `composure-sense-${mode}-${Date.now()}.json`;
@@ -2398,7 +2398,7 @@ Generated by ComposureSense v1.0
 
       const dataBlob = new Blob([report], { type: 'text/plain' });
       const url = URL.createObjectURL(dataBlob);
-      
+
       const link = document.createElement('a');
       link.href = url;
       link.download = `composure-sense-report-${mode}-${Date.now()}.txt`;
@@ -2466,7 +2466,7 @@ Generated by ComposureSense v1.0
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
         setIsStreaming(true);
-        
+
         // Initialize session tracking
         setSessionStartTime(Date.now());
         metricsTimelineRef.current = [];
@@ -2982,88 +2982,6 @@ Generated by ComposureSense v1.0
                     <p>• Open arms to express welcome</p>
                     <p>• Touch face when thinking</p>
                     <p>• Stand tall to project confidence</p>
-                  </div>
-                </Card>
-              </>
-            ) : mode === "composure" ? (
-              <>
-                <Card className="p-4 bg-gradient-to-br from-blue-600/20 to-purple-600/20 border-blue-500/30">
-                  <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-lg font-semibold">Composure Analysis</h2>
-                    {isStable && isStreaming && (
-                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-500/20 border border-green-500/30" data-testid="stability-indicator">
-                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                        <span className="text-xs font-medium text-green-400">Locked</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="text-center space-y-2" data-testid="composure-score-display">
-                    <div className="text-5xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent transition-all duration-500" data-testid="composure-score">
-                      {composureScore}%
-                    </div>
-                    <div className="text-2xl font-semibold text-foreground transition-all duration-700" data-testid="composure-adjective">
-                      {currentAdjective}
-                    </div>
-                    <div className="text-sm text-muted-foreground">
-                      Overall Presence Score
-                    </div>
-                  </div>
-                </Card>
-
-                <Card className="p-4">
-                  <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                    Live Feedback
-                  </h2>
-                  <div data-testid="live-feedback-list">
-                    {feedback.length > 0 ? (
-                      <ul className="space-y-2">
-                        {feedback.map((item, index) => (
-                          <li
-                            key={index}
-                            className="flex items-start gap-2 text-sm leading-relaxed"
-                          >
-                            <span className="text-orange-500 mt-0.5 flex-shrink-0">⚠️</span>
-                            <span className="text-muted-foreground">{item}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        {isStreaming ? "Analysis in progress..." : "Start camera to begin"}
-                      </p>
-                    )}
-                  </div>
-                </Card>
-
-                <Card className="p-4">
-                  <h2 className="text-lg font-semibold mb-3">Posture Metrics</h2>
-                  <div className="space-y-3" data-testid="posture-metrics-list">
-                    {metrics.length > 0 ? (
-                      metrics.map((metric, index) => (
-                        <div key={index}>
-                          <div className="flex justify-between text-sm mb-1">
-                            <span className="text-muted-foreground">{metric.label}</span>
-                            <span className="font-semibold" style={{ color: metric.color }}>
-                              {metric.value}%
-                            </span>
-                          </div>
-                          <div className="w-full bg-muted rounded-full h-2">
-                            <div
-                              className="h-2 rounded-full transition-all duration-500"
-                              style={{
-                                width: `${metric.value}%`,
-                                backgroundColor: metric.color,
-                              }}
-                            />
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        {isStreaming ? "Calculating metrics..." : "Start camera to see metrics"}
-                      </p>
-                    )}
                   </div>
                 </Card>
               </>
