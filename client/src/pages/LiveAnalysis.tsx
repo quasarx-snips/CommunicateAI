@@ -157,7 +157,7 @@ export default function LiveAnalysis() {
     return smoothed;
   };
 
-  
+
 
   const initializePoseDetector = async () => {
     try {
@@ -411,7 +411,7 @@ export default function LiveAnalysis() {
     };
   };
 
-  
+
 
   // ADVANCED FACE ANALYSIS HELPERS
   const lastHeadPositionRef = useRef<{ x: number; y: number; z: number } | null>(null);
@@ -998,7 +998,7 @@ export default function LiveAnalysis() {
     };
   };
 
-  
+
 
   const drawPoseLandmarks = (poses: any[], canvas: HTMLCanvasElement, scaleX: number = 1, scaleY: number = 1) => {
     const ctx = canvas.getContext("2d");
@@ -1321,7 +1321,7 @@ export default function LiveAnalysis() {
     ctx.restore();
   };
 
-  
+
 
 
   const detectLoop = useCallback(async () => {
@@ -1451,7 +1451,7 @@ export default function LiveAnalysis() {
             const ctx = overlayCanvas.getContext("2d");
             if (ctx) ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
           }
-        
+
 
         const now = performance.now();
         frameCountRef.current++;
