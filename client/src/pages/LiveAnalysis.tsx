@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Camera, Loader2, ArrowLeft, StopCircle, Activity, GraduationCap, Briefcase, AlertTriangle, Eye, Zap, Save, Download } from "lucide-react";
+import { Camera, Loader2, ArrowLeft, StopCircle, Activity, GraduationCap, Briefcase, AlertTriangle, Eye, Save, Download } from "lucide-react";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
@@ -13,7 +13,7 @@ import { modelLoader } from "@/lib/modelLoader";
 import { createLiveSession } from "@/lib/api";
 import type { LiveSessionResult } from "@shared/schema";
 
-type AnalysisMode = "education" | "interview" | "expressions" | "composure" | "decoder";
+type AnalysisMode = "education" | "interview" | "expressions";
 
 interface EmotionData {
   neutral: number;
@@ -78,10 +78,6 @@ export default function LiveAnalysis() {
     improvementAreas: []
   });
 
-  const [currentGesture, setCurrentGesture] = useState<string>("Neutral");
-  const [currentAdjective, setCurrentAdjective] = useState<string>("Neutral");
-  const [composureScore, setComposureScore] = useState<number>(0);
-  const [isStable, setIsStable] = useState<boolean>(false);
   const [emotions, setEmotions] = useState<EmotionData>({
     neutral: 0,
     happy: 0,
@@ -92,8 +88,6 @@ export default function LiveAnalysis() {
     sad: 0
   });
   const [faceTracking, setFaceTracking] = useState<boolean>(false);
-  const [decodedTexts, setDecodedTexts] = useState<string[]>([]);
-  const [currentDecoding, setCurrentDecoding] = useState<string>("");
 
   // Session recording state
   const [sessionStartTime, setSessionStartTime] = useState<number | null>(null);
@@ -115,12 +109,7 @@ export default function LiveAnalysis() {
 
   // Smoothing and stability refs
   const metricsHistoryRef = useRef<Array<{ label: string; value: number; color: string }[]>>([]);
-  const scoreHistoryRef = useRef<number[]>([]);
-  const adjectiveStableRef = useRef<{ adjective: string; score: number }>({ adjective: "Neutral", score: 0 });
   const frameSkipCounterRef = useRef(0);
-  const faceBoxHistoryRef = useRef<Array<{ x: number; y: number; width: number; height: number }>>([]);
-  const lastDecodedActionRef = useRef<string>("");
-  const decodingHistoryRef = useRef<string[]>([]);
   const lastPoseRef = useRef<any>(null);
   const performanceStatsRef = useRef<{ frameTime: number; poseTime: number; faceTime: number }>({ frameTime: 0, poseTime: 0, faceTime: 0 });
 
@@ -168,69 +157,7 @@ export default function LiveAnalysis() {
     return smoothed;
   };
 
-  // Smooth composure score with hysteresis
-  const smoothComposureScore = (newScore: number): number => {
-    const SCORE_HISTORY_SIZE = 8;
-
-    scoreHistoryRef.current.push(newScore);
-    if (scoreHistoryRef.current.length > SCORE_HISTORY_SIZE) {
-      scoreHistoryRef.current.shift();
-    }
-
-    // Calculate weighted moving average (more weight to recent values)
-    const weights = scoreHistoryRef.current.map((_, idx) => idx + 1);
-    const totalWeight = weights.reduce((sum, w) => sum + w, 0);
-    const weightedScore = scoreHistoryRef.current.reduce(
-      (sum, score, idx) => sum + score * weights[idx],
-      0
-    ) / totalWeight;
-
-    return Math.round(weightedScore);
-  };
-
-  // Stable adjective selection with hysteresis
-  const getStableAdjective = (score: number): { adjective: string; isStable: boolean } => {
-    const CHANGE_THRESHOLD = 10; // Only change if score differs by 10+ points
-
-    const scoreDiff = Math.abs(score - adjectiveStableRef.current.score);
-
-    if (scoreDiff >= CHANGE_THRESHOLD || adjectiveStableRef.current.adjective === "Neutral") {
-      const newAdjective = getComposureAdjective(score);
-      adjectiveStableRef.current = { adjective: newAdjective, score };
-      return { adjective: newAdjective, isStable: false };
-    }
-
-    return { adjective: adjectiveStableRef.current.adjective, isStable: true };
-  };
-
-  // Smooth face box calculation with exponential moving average
-  const smoothFaceBox = (newBox: { x: number; y: number; width: number; height: number }) => {
-    const BOX_HISTORY_SIZE = 4;
-    const SMOOTHING_WEIGHT = 0.4; // Higher weight = more responsive, lower = smoother
-
-    faceBoxHistoryRef.current.push(newBox);
-    if (faceBoxHistoryRef.current.length > BOX_HISTORY_SIZE) {
-      faceBoxHistoryRef.current.shift();
-    }
-
-    if (faceBoxHistoryRef.current.length === 1) {
-      return newBox;
-    }
-
-    // Calculate weighted average for each dimension
-    let smoothedBox = { ...newBox };
-    const history = faceBoxHistoryRef.current;
-
-    ['x', 'y', 'width', 'height'].forEach((key) => {
-      let value = history[history.length - 1][key as keyof typeof newBox];
-      for (let i = history.length - 2; i >= 0; i--) {
-        value = history[i][key as keyof typeof newBox] * (1 - SMOOTHING_WEIGHT) + value * SMOOTHING_WEIGHT;
-      }
-      smoothedBox[key as keyof typeof smoothedBox] = value;
-    });
-
-    return smoothedBox;
-  };
+  
 
   const initializePoseDetector = async () => {
     try {
@@ -484,83 +411,7 @@ export default function LiveAnalysis() {
     };
   };
 
-  const detectGesture = (keypoints: any[]): string => {
-    const getKeypoint = (name: string) => keypoints.find((kp) => kp.name === name);
-
-    const leftWrist = getKeypoint("left_wrist");
-    const rightWrist = getKeypoint("right_wrist");
-    const leftElbow = getKeypoint("left_elbow");
-    const rightElbow = getKeypoint("right_elbow");
-    const leftShoulder = getKeypoint("left_shoulder");
-    const rightShoulder = getKeypoint("right_shoulder");
-    const nose = getKeypoint("nose");
-
-    if (rightWrist && rightElbow && rightShoulder &&
-        rightWrist.score > 0.5 && rightElbow.score > 0.5 && rightShoulder.score > 0.5) {
-      if (rightWrist.y < rightElbow.y && rightWrist.y < rightShoulder.y) {
-        return "👋 Waving Right Hand";
-      }
-    }
-
-    if (leftWrist && leftElbow && leftShoulder &&
-        leftWrist.score > 0.5 && leftElbow.score > 0.5 && leftShoulder.score > 0.5) {
-      if (leftWrist.y < leftElbow.y && leftWrist.y < leftShoulder.y) {
-        return "👋 Waving Left Hand";
-      }
-    }
-
-    if (leftWrist && rightWrist && leftShoulder && rightShoulder &&
-        leftWrist.score > 0.5 && rightWrist.score > 0.5) {
-      if (leftWrist.x > rightShoulder.x && rightWrist.x < leftShoulder.x) {
-        return "🤝 Arms Crossed";
-      }
-    }
-
-    if (leftWrist && rightWrist && leftShoulder && rightShoulder &&
-        leftWrist.score > 0.5 && rightWrist.score > 0.5) {
-      const leftHip = getKeypoint("left_hip");
-      const rightHip = getKeypoint("right_hip");
-      if (leftHip && rightHip) {
-        const leftDist = Math.abs(leftWrist.x - leftHip.x) + Math.abs(leftWrist.y - leftHip.y);
-        const rightDist = Math.abs(rightWrist.x - rightHip.x) + Math.abs(rightWrist.y - rightHip.y);
-        if (leftDist < 0.15 && rightDist < 0.15) {
-          return "💪 Hands on Hips - Confident";
-        }
-      }
-    }
-
-    if (rightWrist && rightElbow && rightShoulder &&
-        rightWrist.score > 0.5 && rightElbow.score > 0.5) {
-      if (rightWrist.y < rightShoulder.y && rightElbow.y < rightShoulder.y) {
-        return "👍 Thumbs Up";
-      }
-    }
-
-    if (nose && rightWrist && rightWrist.score > 0.5 && nose.score > 0.5) {
-      const distance = Math.sqrt(Math.pow(nose.x - rightWrist.x, 2) + Math.pow(nose.y - rightWrist.y, 2));
-      if (distance < 0.15) {
-        return "🤔 Thinking Pose";
-      }
-    }
-
-    if (nose && leftWrist && leftWrist.score > 0.5 && nose.score > 0.5) {
-      const distance = Math.sqrt(Math.pow(nose.x - leftWrist.x, 2) + Math.pow(nose.y - leftWrist.y, 2));
-      if (distance < 0.15) {
-        return "🤔 Thinking Pose";
-      }
-    }
-
-    if (leftWrist && rightWrist && leftShoulder && rightShoulder &&
-        leftWrist.score > 0.5 && rightWrist.score > 0.5) {
-      const armSpan = Math.abs(leftWrist.x - rightWrist.x);
-      const shoulderSpan = Math.abs(leftShoulder.x - rightShoulder.x);
-      if (armSpan > shoulderSpan * 1.8 && leftWrist.y > leftShoulder.y && rightWrist.y > rightShoulder.y) {
-        return "🙌 Open Arms - Welcoming";
-      }
-    }
-
-    return "Neutral";
-  };
+  
 
   // ADVANCED FACE ANALYSIS HELPERS
   const lastHeadPositionRef = useRef<{ x: number; y: number; z: number } | null>(null);
@@ -1147,170 +998,7 @@ export default function LiveAnalysis() {
     };
   };
 
-  const decodeBodyLanguage = (keypoints: any[]): string => {
-    const getKeypoint = (name: string) => keypoints.find((kp) => kp.name === name);
-
-    const leftWrist = getKeypoint("left_wrist");
-    const rightWrist = getKeypoint("right_wrist");
-    const leftElbow = getKeypoint("left_elbow");
-    const rightElbow = getKeypoint("right_elbow");
-    const leftShoulder = getKeypoint("left_shoulder");
-    const rightShoulder = getKeypoint("right_shoulder");
-    const leftHip = getKeypoint("left_hip");
-    const rightHip = getKeypoint("right_hip");
-    const nose = getKeypoint("nose");
-    const leftEye = getKeypoint("left_eye");
-    const rightEye = getKeypoint("right_eye");
-
-    const CONF = 0.5;
-
-    // Hand raising detection
-    if (rightWrist && rightShoulder && rightWrist.score > CONF && rightShoulder.score > CONF) {
-      if (rightWrist.y < rightShoulder.y - 0.15) {
-        return "Raising right hand to signal attention or ask a question";
-      }
-    }
-
-    if (leftWrist && leftShoulder && leftWrist.score > CONF && leftShoulder.score > CONF) {
-      if (leftWrist.y < leftShoulder.y - 0.15) {
-        return "Raising left hand to signal attention or ask a question";
-      }
-    }
-
-    // Pointing gesture
-    if (rightWrist && rightElbow && rightShoulder &&
-        rightWrist.score > CONF && rightElbow.score > CONF) {
-      const armAngle = Math.atan2(rightWrist.y - rightElbow.y, rightWrist.x - rightElbow.x);
-      if (rightWrist.x > rightElbow.x && Math.abs(armAngle) < 0.5) {
-        return "Pointing to the right, directing attention";
-      }
-      if (rightWrist.x < rightElbow.x && Math.abs(Math.PI - Math.abs(armAngle)) < 0.5) {
-        return "Pointing to the left, indicating direction";
-      }
-    }
-
-    // Arms crossed - defensive or closed off
-    if (leftWrist && rightWrist && leftShoulder && rightShoulder &&
-        leftWrist.score > CONF && rightWrist.score > CONF) {
-      if (leftWrist.x > rightShoulder.x && rightWrist.x < leftShoulder.x) {
-        return "Arms crossed over chest, showing defensiveness or contemplation";
-      }
-    }
-
-    // Hands on hips - confidence or authority
-    if (leftWrist && rightWrist && leftHip && rightHip &&
-        leftWrist.score > CONF && rightWrist.score > CONF) {
-      const leftDist = Math.abs(leftWrist.x - leftHip.x) + Math.abs(leftWrist.y - leftHip.y);
-      const rightDist = Math.abs(rightWrist.x - rightHip.x) + Math.abs(rightWrist.y - rightHip.y);
-      if (leftDist < 0.2 && rightDist < 0.2) {
-        return "Hands on hips, displaying confidence and authority";
-      }
-    }
-
-    // Hand to face - thinking or uncertain
-    if (nose && (leftWrist || rightWrist)) {
-      if (rightWrist && rightWrist.score > CONF) {
-        const distance = Math.sqrt(Math.pow(nose.x - rightWrist.x, 2) + Math.pow(nose.y - rightWrist.y, 2));
-        if (distance < 0.18) {
-          return "Hand near face, suggesting thinking or uncertainty";
-        }
-      }
-      if (leftWrist && leftWrist.score > CONF) {
-        const distance = Math.sqrt(Math.pow(nose.x - leftWrist.x, 2) + Math.pow(nose.y - leftWrist.y, 2));
-        if (distance < 0.18) {
-          return "Hand touching face, indicating contemplation or doubt";
-        }
-      }
-    }
-
-    // Open arms - welcoming or explaining
-    if (leftWrist && rightWrist && leftShoulder && rightShoulder &&
-        leftWrist.score > CONF && rightWrist.score > CONF) {
-      const armSpan = Math.abs(leftWrist.x - rightWrist.x);
-      const shoulderSpan = Math.abs(leftShoulder.x - rightShoulder.x);
-      if (armSpan > shoulderSpan * 1.7) {
-        if (leftWrist.y > leftShoulder.y && rightWrist.y > rightShoulder.y) {
-          return "Arms spread wide open, expressing welcome or emphasizing a point";
-        }
-        if (leftWrist.y < leftShoulder.y && rightWrist.y < rightShoulder.y) {
-          return "Arms raised and spread, showing excitement or celebration";
-        }
-      }
-    }
-
-    // Leaning forward - engagement
-    if (nose && leftShoulder && rightShoulder && leftHip && rightHip &&
-        nose.score > 0.6 && leftShoulder.score > CONF && rightShoulder.score > CONF) {
-      const shoulderMid = { x: (leftShoulder.x + leftShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
-      const hipMid = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
-
-      if (nose.y > shoulderMid.y && Math.abs(nose.x - shoulderMid.x) < 0.15) {
-        const vertDist = Math.abs(shoulderMid.y - hipMid.y);
-        const horizDist = Math.abs(shoulderMid.x - hipMid.x);
-        if (horizDist > vertDist * 0.15) {
-          return "Leaning forward, showing active engagement and interest";
-        }
-      }
-    }
-
-    // Hands behind back - formal or reserved
-    if (leftWrist && rightWrist && leftHip && rightHip &&
-        leftWrist.score > CONF && rightWrist.score > CONF) {
-      const hipMid = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
-      if (leftWrist.y > hipMid.y && rightWrist.y > hipMid.y &&
-          Math.abs(leftWrist.x - rightWrist.x) < 0.15) {
-        return "Hands clasped behind back, displaying formal posture or restraint";
-      }
-    }
-
-    // Fidgeting hands - nervousness
-    if (lastPoseRef.current && leftWrist && rightWrist) {
-      const lastLeftWrist = lastPoseRef.current.keypoints.find((kp: any) => kp.name === "left_wrist");
-      const lastRightWrist = lastPoseRef.current.keypoints.find((kp: any) => kp.name === "right_wrist");
-
-      if (lastLeftWrist && lastRightWrist && leftWrist.score > CONF && rightWrist.score > CONF) {
-        const leftMovement = Math.sqrt(Math.pow(leftWrist.x - lastLeftWrist.x, 2) + Math.pow(leftWrist.y - lastLeftWrist.y, 2));
-        const rightMovement = Math.sqrt(Math.pow(rightWrist.x - lastRightWrist.x, 2) + Math.pow(rightWrist.y - lastRightWrist.y, 2));
-
-        if (leftMovement > 0.08 && rightMovement > 0.08) {
-          return "Hands moving rapidly, indicating nervousness or restlessness";
-        }
-      }
-    }
-
-    // Slouching - low energy or disinterest
-    if (leftShoulder && rightShoulder && leftHip && rightHip &&
-        leftShoulder.score > CONF && rightShoulder.score > CONF) {
-      const shoulderMid = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
-      const hipMid = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
-
-      const vertDist = Math.abs(shoulderMid.y - hipMid.y);
-      const horizDist = Math.abs(shoulderMid.x - hipMid.x);
-
-      if (vertDist > 0 && horizDist / vertDist > 0.25) {
-        return "Slouching posture, suggesting low energy or lack of interest";
-      }
-    }
-
-    // Standing tall - confidence
-    if (leftShoulder && rightShoulder && leftHip && rightHip &&
-        leftShoulder.score > CONF && rightShoulder.score > CONF) {
-      const shoulderMid = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
-      const hipMid = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
-
-      const vertDist = Math.abs(shoulderMid.y - hipMid.y);
-      const horizDist = Math.abs(shoulderMid.x - hipMid.x);
-
-      if (vertDist > 0 && horizDist / vertDist < 0.1) {
-        const shoulderLevel = Math.abs(leftShoulder.y - rightShoulder.y);
-        if (shoulderLevel < 0.05) {
-          return "Standing upright with level shoulders, projecting confidence";
-        }
-      }
-    }
-
-    return "Maintaining neutral stance";
-  };
+  
 
   const drawPoseLandmarks = (poses: any[], canvas: HTMLCanvasElement, scaleX: number = 1, scaleY: number = 1) => {
     const ctx = canvas.getContext("2d");
@@ -1633,179 +1321,7 @@ export default function LiveAnalysis() {
     ctx.restore();
   };
 
-  // Enhanced composure visualization with premium skeletal overlay and face box
-  const drawComposureAnalysis = (poses: any[], canvas: HTMLCanvasElement, adjective: string, scaleX: number = 1, scaleY: number = 1) => {
-    const ctx = canvas.getContext("2d");
-    if (!ctx || !poses.length) return;
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Apply coordinate scaling for proper overlay alignment
-    ctx.save();
-    ctx.scale(scaleX, scaleY);
-
-    poses.forEach((pose) => {
-      const keypoints = pose.keypoints;
-      const getKeypoint = (name: string) => keypoints.find((kp: any) => kp.name === name);
-
-      // Skeletal connections with hierarchy
-      const connections = [
-        ["nose", "left_eye"],
-        ["nose", "right_eye"],
-        ["left_eye", "left_ear"],
-        ["right_eye", "right_ear"],
-        ["left_shoulder", "right_shoulder"],
-        ["left_shoulder", "left_elbow"],
-        ["right_shoulder", "right_elbow"],
-        ["left_elbow", "left_wrist"],
-        ["right_elbow", "right_wrist"],
-        ["left_shoulder", "left_hip"],
-        ["right_shoulder", "right_hip"],
-        ["left_hip", "right_hip"],
-        ["left_hip", "left_knee"],
-        ["right_hip", "right_knee"],
-        ["left_knee", "left_ankle"],
-        ["right_knee", "right_ankle"],
-      ];
-
-      // Thin skeletal lines
-      connections.forEach(([start, end]) => {
-        const startKp = getKeypoint(start);
-        const endKp = getKeypoint(end);
-
-        if (startKp && endKp && startKp.score > 0.4 && endKp.score > 0.4) {
-          ctx.beginPath();
-          ctx.moveTo(startKp.x, startKp.y);
-          ctx.lineTo(endKp.x, endKp.y);
-          ctx.strokeStyle = "rgba(34, 197, 94, 0.7)";
-          ctx.lineWidth = 1.5;
-          ctx.stroke();
-
-          ctx.shadowBlur = 0;
-        }
-      });
-
-      // Small, clean keypoints
-      keypoints.forEach((keypoint: any) => {
-        if (keypoint.score > 0.4) {
-          ctx.beginPath();
-          ctx.arc(keypoint.x, keypoint.y, 3, 0, 2 * Math.PI);
-          ctx.fillStyle = keypoint.score > 0.7 ? "rgba(34, 197, 94, 0.9)" : "rgba(168, 85, 247, 0.7)";
-          ctx.fill();
-
-          ctx.beginPath();
-          ctx.arc(keypoint.x, keypoint.y, 1.5, 0, 2 * Math.PI);
-          ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
-          ctx.fill();
-        }
-      });
-
-      // Calculate face bounding box with improved accuracy
-      const faceLandmarks = ["nose", "left_eye", "right_eye", "left_ear", "right_ear"];
-      const facePoints = faceLandmarks
-        .map(name => getKeypoint(name))
-        .filter(kp => kp && kp.score > 0.5);
-
-      if (facePoints.length >= 3) {
-        // Calculate raw bounding box
-        const faceXs = facePoints.map((kp: any) => kp.x);
-        const faceYs = facePoints.map((kp: any) => kp.y);
-        const rawMinX = Math.min(...faceXs);
-        const rawMaxX = Math.max(...faceXs);
-        const rawMinY = Math.min(...faceYs);
-        const rawMaxY = Math.max(...faceYs);
-
-        // Calculate center and dimensions
-        const centerX = (rawMinX + rawMaxX) / 2;
-        const centerY = (rawMinY + rawMaxY) / 2;
-        const rawWidth = (rawMaxX - rawMinX) * 2.5;
-        const rawHeight = (rawMaxY - rawMinY) * 2.8;
-
-        const boxSize = Math.max(rawWidth, rawHeight);
-        const width = boxSize;
-        const height = boxSize * 1.15;
-
-        // Create smooth box with center-based positioning
-        const rawBox = {
-          x: centerX - width / 2,
-          y: centerY - height / 2,
-          width: width,
-          height: height
-        };
-
-        // Apply smoothing
-        const smoothedBox = smoothFaceBox(rawBox);
-        const { x: boxX, y: boxY, width: finalWidth, height: finalHeight } = smoothedBox;
-
-        const cornerRadius = 10;
-
-        // Draw lightweight face box with subtle styling
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = "rgba(59, 130, 246, 0.4)";
-
-        ctx.strokeStyle = "rgba(59, 130, 246, 0.9)";
-        ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        ctx.moveTo(boxX + cornerRadius, boxY);
-        ctx.lineTo(boxX + finalWidth - cornerRadius, boxY);
-        ctx.arcTo(boxX + finalWidth, boxY, boxX + finalWidth, boxY + cornerRadius, cornerRadius);
-        ctx.lineTo(boxX + finalWidth, boxY + finalHeight - cornerRadius);
-        ctx.arcTo(boxX + finalWidth, boxY + finalHeight, boxX + finalWidth - cornerRadius, boxY + finalHeight, cornerRadius);
-        ctx.lineTo(boxX + cornerRadius, boxY + finalHeight);
-        ctx.arcTo(boxX, boxY + finalHeight, boxX, boxY + finalHeight - cornerRadius, cornerRadius);
-        ctx.lineTo(boxX, boxY + cornerRadius);
-        ctx.arcTo(boxX, boxY, boxX + cornerRadius, boxY, cornerRadius);
-        ctx.closePath();
-        ctx.stroke();
-
-        ctx.shadowBlur = 0;
-
-        // Draw lightweight adjective label
-        ctx.font = "600 18px Inter, system-ui, sans-serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "bottom";
-
-        const textMetrics = ctx.measureText(adjective);
-        const textWidth = textMetrics.width + 24;
-        const textHeight = 32;
-        const textX = boxX + finalWidth / 2;
-        const textY = boxY - 10;
-
-        // Subtle gradient background
-        const bgGradient = ctx.createLinearGradient(textX - textWidth/2, textY - textHeight, textX + textWidth/2, textY);
-        bgGradient.addColorStop(0, "rgba(0, 0, 0, 0.8)");
-        bgGradient.addColorStop(0.5, "rgba(15, 15, 25, 0.85)");
-        bgGradient.addColorStop(1, "rgba(0, 0, 0, 0.8)");
-
-        ctx.fillStyle = bgGradient;
-        ctx.shadowBlur = 6;
-        ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
-        ctx.beginPath();
-        ctx.moveTo(textX - textWidth/2 + 6, textY - textHeight);
-        ctx.lineTo(textX + textWidth/2 - 6, textY - textHeight);
-        ctx.arcTo(textX + textWidth/2, textY - textHeight, textX + textWidth/2, textY - textHeight + 6, 6);
-        ctx.lineTo(textX + textWidth/2, textY - 6);
-        ctx.arcTo(textX + textWidth/2, textY, textX + textWidth/2 - 6, textY, 6);
-        ctx.lineTo(textX - textWidth/2 + 6, textY);
-        ctx.arcTo(textX - textWidth/2, textY, textX - textWidth/2, textY - 6, 6);
-        ctx.lineTo(textX - textWidth/2, textY - textHeight + 6);
-        ctx.arcTo(textX - textWidth/2, textY - textHeight, textX - textWidth/2 + 6, textY - textHeight, 6);
-        ctx.closePath();
-        ctx.fill();
-
-        ctx.shadowBlur = 0;
-
-        // Draw text with subtle glow
-        ctx.shadowBlur = 3;
-        ctx.shadowColor = "rgba(59, 130, 246, 0.6)";
-        ctx.fillStyle = "rgba(255, 255, 255, 0.98)";
-        ctx.fillText(adjective, textX, textY - 7);
-        ctx.shadowBlur = 0;
-      }
-    });
-
-    ctx.restore();
-  };
+  
 
 
   const detectLoop = useCallback(async () => {
@@ -1935,125 +1451,7 @@ export default function LiveAnalysis() {
             const ctx = overlayCanvas.getContext("2d");
             if (ctx) ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
           }
-        } else if (mode === "composure") {
-          if (!detectorRef.current || !detectorReady) return;
-
-          // Optimized frame skipping: process every 3rd frame when stable for better performance
-          const currentFrameCount = frameSkipCounterRef.current;
-          const shouldProcess = !isStable || currentFrameCount % 3 === 0;
-          const runFaceDetection = currentFrameCount % 4 === 0;
-          frameSkipCounterRef.current++;
-
-          if (shouldProcess) {
-            const frameStart = performance.now();
-            const poses = await detectorRef.current.estimatePoses(video, {
-              flipHorizontal: false,
-            });
-            performanceStatsRef.current.poseTime = performance.now() - poseStart;
-
-            // Also get face mesh
-            let faceDetections = null;
-            if (faceApiLoadedRef.current && faceDetectorReady && runFaceDetection) {
-              const detections = await faceapi
-                .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({
-                  inputSize: 224,
-                  scoreThreshold: 0.4
-                }))
-                .withFaceLandmarks();
-
-              if (detections && detections.length > 0) {
-                faceDetections = detections;
-              }
-            }
-
-            if (poses && poses.length > 0) {
-              const { metrics: rawMetrics, feedback: newFeedback, composureScore: rawScore } = calculatePostureMetrics(
-                poses[0].keypoints
-              );
-
-              // Apply smoothing for stability
-              const smoothedMetrics = smoothMetrics(rawMetrics);
-              const smoothedScore = smoothComposureScore(rawScore);
-              const { adjective: stableAdjective, isStable: readingIsStable } = getStableAdjective(smoothedScore);
-
-              setMetrics(smoothedMetrics);
-              setFeedback(newFeedback);
-              setComposureScore(smoothedScore);
-              setCurrentAdjective(stableAdjective);
-              setIsStable(readingIsStable && metricsHistoryRef.current.length >= 5);
-
-              // Draw face mesh FIRST
-              if (faceDetections) {
-                drawFaceMesh(faceDetections, overlayCanvas, scaleX, scaleY);
-              }
-
-              // Draw skeleton OVER it
-              drawComposureAnalysis(poses, overlayCanvas, stableAdjective, scaleX, scaleY);
-
-              const gesture = detectGesture(poses[0].keypoints);
-              setCurrentGesture(gesture);
-            } else {
-              const ctx = overlayCanvas.getContext("2d");
-              if (ctx) ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-            }
-          }
-        } else if (mode === "decoder") {
-          if (!detectorRef.current || !detectorReady) return;
-
-          // Optimized frame skipping for decoder mode
-          const currentFrameCount = frameSkipCounterRef.current;
-          const shouldProcess = currentFrameCount % 2 === 0;
-          const runFaceDetection = currentFrameCount % 4 === 0;
-          frameSkipCounterRef.current++;
-
-          if (shouldProcess) {
-            const frameStart = performance.now();
-            const poses = await detectorRef.current.estimatePoses(video, {
-              flipHorizontal: false,
-            });
-            performanceStatsRef.current.poseTime = performance.now() - poseStart;
-
-            // Also get face mesh
-            let faceDetections = null;
-            if (faceApiLoadedRef.current && faceDetectorReady && runFaceDetection) {
-              const detections = await faceapi
-                .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({
-                  inputSize: 224,
-                  scoreThreshold: 0.4
-                }))
-                .withFaceLandmarks();
-
-              if (detections && detections.length > 0) {
-                faceDetections = detections;
-              }
-            }
-
-            if (poses && poses.length > 0) {
-              const decodedText = decodeBodyLanguage(poses[0].keypoints);
-
-              // Only add to history if it's a new action (not "Maintaining neutral stance")
-              if (decodedText !== lastDecodedActionRef.current && decodedText !== "Maintaining neutral stance") {
-                lastDecodedActionRef.current = decodedText;
-                decodingHistoryRef.current.push(decodedText);
-                setDecodedTexts([...decodingHistoryRef.current]);
-              }
-
-              setCurrentDecoding(decodedText);
-
-              // Draw face mesh FIRST
-              if (faceDetections) {
-                drawFaceMesh(faceDetections, overlayCanvas, scaleX, scaleY);
-              }
-
-              // Draw skeleton OVER it
-              drawPoseLandmarks(poses, overlayCanvas, scaleX, scaleY);
-              lastPoseRef.current = poses[0];
-            } else {
-              const ctx = overlayCanvas.getContext("2d");
-              if (ctx) ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
-            }
-          }
-        }
+        
 
         const now = performance.now();
         frameCountRef.current++;
@@ -2139,9 +1537,7 @@ export default function LiveAnalysis() {
     const modeSpecificData: any = {};
     if (mode === "education") modeSpecificData.educationMetrics = educationMetrics;
     if (mode === "interview") modeSpecificData.interviewMetrics = interviewMetrics;
-    if (mode === "composure") modeSpecificData.composureScore = composureScore;
     if (mode === "expressions") modeSpecificData.emotions = emotions;
-    if (mode === "decoder") modeSpecificData.decodedActions = decodedTexts;
 
     return {
       mode,
@@ -2455,11 +1851,6 @@ Generated by ComposureSense v1.0
 
     // Clear smoothing buffers for fresh start
     metricsHistoryRef.current = [];
-    scoreHistoryRef.current = [];
-    adjectiveStableRef.current = { adjective: "Neutral", score: 0 };
-    faceBoxHistoryRef.current = [];
-    lastDecodedActionRef.current = "";
-    decodingHistoryRef.current = [];
     lastPoseRef.current = null;
 
     setIsStreaming(false);
@@ -2467,12 +1858,6 @@ Generated by ComposureSense v1.0
     setMetrics([]);
     setFps(0);
     setFaceTracking(false);
-    setCurrentGesture("Neutral");
-    setCurrentAdjective("Neutral");
-    setComposureScore(0);
-    setIsStable(false);
-    setDecodedTexts([]);
-    setCurrentDecoding("");
     setEmotions({
       neutral: 0, happy: 0, surprise: 0, angry: 0, disgust: 0, fear: 0, sad: 0
     });
@@ -2573,7 +1958,7 @@ Generated by ComposureSense v1.0
 
         <div className="mb-6 flex justify-center">
           <Tabs value={mode} onValueChange={(value) => switchMode(value as AnalysisMode)}>
-            <TabsList className="grid w-full max-w-5xl grid-cols-5">
+            <TabsList className="grid w-full max-w-3xl grid-cols-3">
               <TabsTrigger value="education" data-testid="tab-education" className="flex items-center gap-2">
                 <GraduationCap className="w-4 h-4" />
                 Education
@@ -2585,14 +1970,6 @@ Generated by ComposureSense v1.0
               <TabsTrigger value="expressions" data-testid="tab-expressions" className="flex items-center gap-2">
                 <Eye className="w-4 h-4" />
                 Expressions
-              </TabsTrigger>
-              <TabsTrigger value="composure" data-testid="tab-composure" className="flex items-center gap-2">
-                <Activity className="w-4 h-4" />
-                Composure
-              </TabsTrigger>
-              <TabsTrigger value="decoder" data-testid="tab-decoder" className="flex items-center gap-2">
-                <Zap className="w-4 h-4" />
-                Decoder
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -2616,12 +1993,6 @@ Generated by ComposureSense v1.0
                   data-testid="overlay-canvas"
                 />
                 <canvas ref={canvasRef} className="hidden" />
-
-                {isStreaming && mode === "composure" && currentGesture !== "Neutral" && (
-                  <div className="absolute top-4 left-4 bg-purple-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-xl animate-pulse">
-                    <span className="text-lg">{currentGesture}</span>
-                  </div>
-                )}
 
                 {!isStreaming && !isLoading && (
                   <div className="absolute inset-0 flex items-center justify-center bg-black/50">
@@ -2899,53 +2270,6 @@ Generated by ComposureSense v1.0
                     </div>
                   </Card>
                 )}
-              </>
-            ) : mode === "decoder" ? (
-              <>
-                <Card className="p-4 bg-gradient-to-br from-purple-600/20 to-blue-600/20 border-purple-500/30">
-                  <h2 className="text-lg font-semibold mb-3">Current Action</h2>
-                  <div className="bg-black/40 rounded-lg p-4 min-h-[80px] flex items-center justify-center">
-                    <p className="text-center text-white font-medium" data-testid="current-decoding">
-                      {currentDecoding || "Waiting for movement..."}
-                    </p>
-                  </div>
-                </Card>
-
-                <Card className="p-4 bg-black/90 dark:bg-black/95">
-                  <h2 className="text-lg font-semibold mb-3 text-white">Session History</h2>
-                  <div className="space-y-2 max-h-[400px] overflow-y-auto" data-testid="decoding-history">
-                    {decodedTexts.length > 0 ? (
-                      decodedTexts.map((text, index) => (
-                        <div
-                          key={index}
-                          className="bg-gradient-to-r from-purple-900/40 to-blue-900/40 rounded-lg p-3 border border-purple-500/20"
-                        >
-                          <div className="flex items-start gap-3">
-                            <span className="text-purple-400 font-bold text-sm mt-0.5">#{index + 1}</span>
-                            <p className="text-gray-200 text-sm flex-1">{text}</p>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-sm text-gray-400 text-center py-8">
-                        {isStreaming ? "Tracking your movements..." : "Start camera to begin decoding"}
-                      </p>
-                    )}
-                  </div>
-                </Card>
-
-                <Card className="p-4 bg-black/90 dark:bg-black/95">
-                  <h2 className="text-lg font-semibold mb-3 text-white">How It Works</h2>
-                  <div className="space-y-2 text-sm text-gray-300">
-                    <p>• Raise hands to signal attention</p>
-                    <p>• Point to indicate direction</p>
-                    <p>• Cross arms to show contemplation</p>
-                    <p>• Hands on hips for confidence</p>
-                    <p>• Open arms to express welcome</p>
-                    <p>• Touch face when thinking</p>
-                    <p>• Stand tall to project confidence</p>
-                  </div>
-                </Card>
               </>
             ) : (
               <>
