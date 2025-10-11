@@ -331,8 +331,8 @@ export default function LiveAnalysis() {
     const feedbackMessages: string[] = [];
 
     // 1. SPINAL ALIGNMENT - Based on research paper's postural biomechanics
-    if (leftShoulder && rightShoulder && leftHip && rightHip &&
-        leftShoulder.score > CONFIDENCE_THRESHOLD && rightShoulder.score > CONFIDENCE_THRESHOLD &&
+    if (leftShoulder && rightShoulder && leftHip && rightHip && 
+        leftShoulder.score > CONFIDENCE_THRESHOLD && rightShoulder.score > CONFIDENCE_THRESHOLD && 
         leftHip.score > CONFIDENCE_THRESHOLD && rightHip.score > CONFIDENCE_THRESHOLD) {
 
       const shoulderMid = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
@@ -433,7 +433,7 @@ export default function LiveAnalysis() {
 
     // 4. OVERALL UPRIGHTNESS - Body angle indicates engagement
     if (leftShoulder && rightShoulder && leftHip && rightHip && nose &&
-        leftShoulder.score > CONFIDENCE_THRESHOLD && rightShoulder.score > CONFIDENCE_THRESHOLD &&
+        leftShoulder.score > CONFIDENCE_THRESHOLD && rightShoulder.score > CONFIDENCE_THRESHOLD && 
         leftHip.score > CONFIDENCE_THRESHOLD && rightHip.score > CONFIDENCE_THRESHOLD && nose.score > 0.6) {
 
       const shoulderMid = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
@@ -457,8 +457,8 @@ export default function LiveAnalysis() {
 
     // 5. PROFESSIONAL PRESENCE SCORE - Overall composure indicator (only high confidence keypoints)
     const highConfidenceKeypoints = keypoints.filter(kp => kp.score > CONFIDENCE_THRESHOLD);
-    const avgConfidence = highConfidenceKeypoints.length > 0
-      ? highConfidenceKeypoints.reduce((sum, kp) => sum + kp.score, 0) / highConfidenceKeypoints.length
+    const avgConfidence = highConfidenceKeypoints.length > 0 
+      ? highConfidenceKeypoints.reduce((sum, kp) => sum + kp.score, 0) / highConfidenceKeypoints.length 
       : 0;
     const visibility = avgConfidence * 100;
 
@@ -473,12 +473,12 @@ export default function LiveAnalysis() {
     }
 
     // Calculate overall composure score
-    const avgScore = metrics.length > 0
-      ? metrics.reduce((sum, m) => sum + m.value, 0) / metrics.length
+    const avgScore = metrics.length > 0 
+      ? metrics.reduce((sum, m) => sum + m.value, 0) / metrics.length 
       : 0;
 
-    return {
-      metrics,
+    return { 
+      metrics, 
       feedback: feedbackMessages.slice(0, 3),
       composureScore: Math.round(avgScore)
     };
@@ -495,14 +495,14 @@ export default function LiveAnalysis() {
     const rightShoulder = getKeypoint("right_shoulder");
     const nose = getKeypoint("nose");
 
-    if (rightWrist && rightElbow && rightShoulder &&
+    if (rightWrist && rightElbow && rightShoulder && 
         rightWrist.score > 0.5 && rightElbow.score > 0.5 && rightShoulder.score > 0.5) {
       if (rightWrist.y < rightElbow.y && rightWrist.y < rightShoulder.y) {
         return "👋 Waving Right Hand";
       }
     }
 
-    if (leftWrist && leftElbow && leftShoulder &&
+    if (leftWrist && leftElbow && leftShoulder && 
         leftWrist.score > 0.5 && leftElbow.score > 0.5 && leftShoulder.score > 0.5) {
       if (leftWrist.y < leftElbow.y && leftWrist.y < leftShoulder.y) {
         return "👋 Waving Left Hand";
@@ -711,7 +711,7 @@ export default function LiveAnalysis() {
     const rightShoulder = getKeypoint("right_shoulder");
 
     if (leftWrist && rightWrist && leftShoulder && rightShoulder) {
-      const wristMovement = lastPoseRef.current ?
+      const wristMovement = lastPoseRef.current ? 
         Math.sqrt(
           Math.pow((leftWrist.x - (lastPoseRef.current.keypoints.find((k: any) => k.name === "left_wrist")?.x || leftWrist.x)), 2) +
           Math.pow((rightWrist.x - (lastPoseRef.current.keypoints.find((k: any) => k.name === "right_wrist")?.x || rightWrist.x)), 2)
@@ -1178,7 +1178,7 @@ export default function LiveAnalysis() {
     }
 
     // Pointing gesture
-    if (rightWrist && rightElbow && rightShoulder &&
+    if (rightWrist && rightElbow && rightShoulder && 
         rightWrist.score > CONF && rightElbow.score > CONF) {
       const armAngle = Math.atan2(rightWrist.y - rightElbow.y, rightWrist.x - rightElbow.x);
       if (rightWrist.x > rightElbow.x && Math.abs(armAngle) < 0.5) {
@@ -1393,49 +1393,144 @@ export default function LiveAnalysis() {
         const landmarks = detection.landmarks;
         const positions = landmarks.positions;
 
-        // Enhanced mesh with all-to-all connections
-        ctx.strokeStyle = "rgba(34, 197, 94, 0.3)";
-        ctx.lineWidth = 1;
+        // Thin mesh lines - matching the screenshot
+        ctx.strokeStyle = "rgba(34, 197, 94, 0.5)";
+        ctx.lineWidth = 0.8;
 
-        // Draw connections between ALL dots for complete mesh
-        for (let i = 0; i < positions.length; i++) {
-          for (let j = i + 1; j < positions.length; j++) {
-            const distance = Math.sqrt(
-              Math.pow(positions[i].x - positions[j].x, 2) +
-              Math.pow(positions[i].y - positions[j].y, 2)
-            );
-
-            // Only connect nearby points to avoid clutter (within 80 pixels)
-            if (distance < 80) {
-              ctx.beginPath();
-              ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
-              ctx.lineTo(positions[j].x * scaleX, positions[j].y * scaleY);
-              ctx.stroke();
-            }
-          }
+        // Draw all basic facial feature connections
+        // Jawline (0-16)
+        for (let i = 0; i < 16; i++) {
+          ctx.beginPath();
+          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
+          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
+          ctx.stroke();
         }
 
-        // Draw enhanced dots with better visibility
+        // Left eyebrow (17-21)
+        for (let i = 17; i < 21; i++) {
+          ctx.beginPath();
+          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
+          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
+          ctx.stroke();
+        }
+
+        // Right eyebrow (22-26)
+        for (let i = 22; i < 26; i++) {
+          ctx.beginPath();
+          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
+          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
+          ctx.stroke();
+        }
+
+        // Nose bridge (27-30)
+        for (let i = 27; i < 30; i++) {
+          ctx.beginPath();
+          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
+          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
+          ctx.stroke();
+        }
+
+        // Nose bottom (31-35)
+        for (let i = 31; i < 35; i++) {
+          ctx.beginPath();
+          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
+          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
+          ctx.stroke();
+        }
+
+        // Left eye (36-41)
+        for (let i = 36; i < 41; i++) {
+          ctx.beginPath();
+          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
+          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
+          ctx.stroke();
+        }
+        ctx.beginPath();
+        ctx.moveTo(positions[41].x * scaleX, positions[41].y * scaleY);
+        ctx.lineTo(positions[36].x * scaleX, positions[36].y * scaleY);
+        ctx.stroke();
+
+        // Right eye (42-47)
+        for (let i = 42; i < 47; i++) {
+          ctx.beginPath();
+          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
+          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
+          ctx.stroke();
+        }
+        ctx.beginPath();
+        ctx.moveTo(positions[47].x * scaleX, positions[47].y * scaleY);
+        ctx.lineTo(positions[42].x * scaleX, positions[42].y * scaleY);
+        ctx.stroke();
+
+        // Outer lip (48-59)
+        for (let i = 48; i < 59; i++) {
+          ctx.beginPath();
+          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
+          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
+          ctx.stroke();
+        }
+        ctx.beginPath();
+        ctx.moveTo(positions[59].x * scaleX, positions[59].y * scaleY);
+        ctx.lineTo(positions[48].x * scaleX, positions[48].y * scaleY);
+        ctx.stroke();
+
+        // Inner lip (60-67)
+        for (let i = 60; i < 67; i++) {
+          ctx.beginPath();
+          ctx.moveTo(positions[i].x * scaleX, positions[i].y * scaleY);
+          ctx.lineTo(positions[i + 1].x * scaleX, positions[i + 1].y * scaleY);
+          ctx.stroke();
+        }
+        ctx.beginPath();
+        ctx.moveTo(positions[67].x * scaleX, positions[67].y * scaleY);
+        ctx.lineTo(positions[60].x * scaleX, positions[60].y * scaleY);
+        ctx.stroke();
+
+        // Add cross-connections for complete mesh coverage (like screenshot)
+        // Connect eyebrows to eyes
+        ctx.strokeStyle = "rgba(34, 197, 94, 0.35)";
+        ctx.lineWidth = 0.6;
+
+        // Left side connections
+        ctx.beginPath(); ctx.moveTo(positions[17].x * scaleX, positions[17].y * scaleY); ctx.lineTo(positions[36].x * scaleX, positions[36].y * scaleY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(positions[19].x * scaleX, positions[19].y * scaleY); ctx.lineTo(positions[37].x * scaleX, positions[37].y * scaleY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(positions[21].x * scaleX, positions[21].y * scaleY); ctx.lineTo(positions[39].x * scaleX, positions[39].y * scaleY); ctx.stroke();
+
+        // Right side connections
+        ctx.beginPath(); ctx.moveTo(positions[22].x * scaleX, positions[22].y * scaleY); ctx.lineTo(positions[42].x * scaleX, positions[42].y * scaleY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(positions[24].x * scaleX, positions[24].y * scaleY); ctx.lineTo(positions[44].x * scaleX, positions[44].y * scaleY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(positions[26].x * scaleX, positions[26].y * scaleY); ctx.lineTo(positions[45].x * scaleX, positions[45].y * scaleY); ctx.stroke();
+
+        // Connect nose to face structure
+        ctx.beginPath(); ctx.moveTo(positions[27].x * scaleX, positions[27].y * scaleY); ctx.lineTo(positions[21].x * scaleX, positions[21].y * scaleY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(positions[27].x * scaleX, positions[27].y * scaleY); ctx.lineTo(positions[22].x * scaleX, positions[22].y * scaleY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(positions[30].x * scaleX, positions[30].y * scaleY); ctx.lineTo(positions[33].x * scaleX, positions[33].y * scaleY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(positions[31].x * scaleX, positions[31].y * scaleY); ctx.lineTo(positions[35].x * scaleX, positions[35].y * scaleY); ctx.stroke();
+
+        // Connect nose to mouth
+        ctx.beginPath(); ctx.moveTo(positions[33].x * scaleX, positions[33].y * scaleY); ctx.lineTo(positions[51].x * scaleX, positions[51].y * scaleY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(positions[35].x * scaleX, positions[35].y * scaleY); ctx.lineTo(positions[48].x * scaleX, positions[48].y * scaleY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(positions[31].x * scaleX, positions[31].y * scaleY); ctx.lineTo(positions[54].x * scaleX, positions[54].y * scaleY); ctx.stroke();
+
+        // Connect jawline to facial features for complete mesh
+        ctx.beginPath(); ctx.moveTo(positions[0].x * scaleX, positions[0].y * scaleY); ctx.lineTo(positions[36].x * scaleX, positions[36].y * scaleY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(positions[2].x * scaleX, positions[2].y * scaleY); ctx.lineTo(positions[31].x * scaleX, positions[31].y * scaleY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(positions[14].x * scaleX, positions[14].y * scaleY); ctx.lineTo(positions[35].x * scaleX, positions[35].y * scaleY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(positions[16].x * scaleX, positions[16].y * scaleY); ctx.lineTo(positions[45].x * scaleX, positions[45].y * scaleY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(positions[4].x * scaleX, positions[4].y * scaleY); ctx.lineTo(positions[48].x * scaleX, positions[48].y * scaleY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(positions[12].x * scaleX, positions[12].y * scaleY); ctx.lineTo(positions[54].x * scaleX, positions[54].y * scaleY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(positions[6].x * scaleX, positions[6].y * scaleY); ctx.lineTo(positions[48].x * scaleX, positions[48].y * scaleY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(positions[10].x * scaleX, positions[10].y * scaleY); ctx.lineTo(positions[54].x * scaleX, positions[54].y * scaleY); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(positions[8].x * scaleX, positions[8].y * scaleY); ctx.lineTo(positions[57].x * scaleX, positions[57].y * scaleY); ctx.stroke();
+
+        // Draw small, subtle landmark points
         positions.forEach((point: any) => {
           const x = point.x * scaleX;
           const y = point.y * scaleY;
 
-          // Outer glow
           ctx.beginPath();
-          ctx.arc(x, y, 3, 0, 2 * Math.PI);
-          ctx.fillStyle = "rgba(34, 197, 94, 0.4)";
-          ctx.fill();
-
-          // Main dot
-          ctx.beginPath();
-          ctx.arc(x, y, 2, 0, 2 * Math.PI);
-          ctx.fillStyle = "rgba(34, 197, 94, 0.9)";
-          ctx.fill();
-
-          // Center highlight
-          ctx.beginPath();
-          ctx.arc(x, y, 1, 0, 2 * Math.PI);
-          ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+          ctx.arc(x, y, 1.5, 0, 2 * Math.PI);
+          ctx.fillStyle = "rgba(34, 197, 94, 0.8)";
           ctx.fill();
         });
       });
@@ -1488,7 +1583,7 @@ export default function LiveAnalysis() {
       ["right_knee", "right_ankle"],
     ];
 
-    // THICK, DARK skeletal lines
+    // Dark, thick skeletal lines for better visibility
     connections.forEach(([start, end]) => {
       const startKp = keypoints.find((kp: any) => kp.name === start);
       const endKp = keypoints.find((kp: any) => kp.name === end);
@@ -1498,7 +1593,7 @@ export default function LiveAnalysis() {
         ctx.moveTo(startKp.x, startKp.y);
         ctx.lineTo(endKp.x, endKp.y);
         ctx.strokeStyle = color.replace('0.9', '1'); // Full opacity
-        ctx.lineWidth = 4; // Even thicker
+        ctx.lineWidth = 3;
         ctx.stroke();
       }
     });
@@ -1507,12 +1602,12 @@ export default function LiveAnalysis() {
     keypoints.forEach((kp: any) => {
       if (kp.score > 0.4) {
         ctx.beginPath();
-        ctx.arc(kp.x, kp.y, 6, 0, 2 * Math.PI); // Bigger
+        ctx.arc(kp.x, kp.y, 5, 0, 2 * Math.PI);
         ctx.fillStyle = color;
         ctx.fill();
 
         ctx.beginPath();
-        ctx.arc(kp.x, kp.y, 3, 0, 2 * Math.PI); // Bigger highlight
+        ctx.arc(kp.x, kp.y, 2.5, 0, 2 * Math.PI);
         ctx.fillStyle = "rgba(255, 255, 255, 1)";
         ctx.fill();
       }
@@ -1580,7 +1675,7 @@ export default function LiveAnalysis() {
       ["left_hip", "right_hip"],
     ];
 
-    // THICK, DARK skeletal lines
+    // Dark, thick skeletal lines for better visibility
     connections.forEach(([start, end]) => {
       const startKp = keypoints.find((kp: any) => kp.name === start);
       const endKp = keypoints.find((kp: any) => kp.name === end);
@@ -1590,7 +1685,7 @@ export default function LiveAnalysis() {
         ctx.moveTo(startKp.x, startKp.y);
         ctx.lineTo(endKp.x, endKp.y);
         ctx.strokeStyle = color.replace('0.9', '1'); // Full opacity
-        ctx.lineWidth = 4; // Even thicker
+        ctx.lineWidth = 3;
         ctx.stroke();
       }
     });
@@ -1599,12 +1694,12 @@ export default function LiveAnalysis() {
     keypoints.forEach((kp: any) => {
       if (kp.score > 0.4) {
         ctx.beginPath();
-        ctx.arc(kp.x, kp.y, 6, 0, 2 * Math.PI); // Bigger
+        ctx.arc(kp.x, kp.y, 5, 0, 2 * Math.PI);
         ctx.fillStyle = color;
         ctx.fill();
 
         ctx.beginPath();
-        ctx.arc(kp.x, kp.y, 3, 0, 2 * Math.PI); // Bigger highlight
+        ctx.arc(kp.x, kp.y, 2.5, 0, 2 * Math.PI);
         ctx.fillStyle = "rgba(255, 255, 255, 1)";
         ctx.fill();
       }
@@ -1941,7 +2036,6 @@ export default function LiveAnalysis() {
           // Optimized frame skipping: process every 3rd frame when stable for better performance
           const currentFrameCount = frameSkipCounterRef.current;
           const shouldProcess = !isStable || currentFrameCount % 3 === 0;
-          const runFaceDetection = currentFrameCount % 4 === 0;
           frameSkipCounterRef.current++;
 
           if (shouldProcess) {
@@ -1949,22 +2043,7 @@ export default function LiveAnalysis() {
             const poses = await detectorRef.current.estimatePoses(video, {
               flipHorizontal: false,
             });
-            performanceStatsRef.current.poseTime = performance.now() - poseStart;
-
-            // Also get face mesh
-            let faceDetections = null;
-            if (faceApiLoadedRef.current && faceDetectorReady && runFaceDetection) {
-              const detections = await faceapi
-                .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({
-                  inputSize: 224,
-                  scoreThreshold: 0.4
-                }))
-                .withFaceLandmarks();
-
-              if (detections && detections.length > 0) {
-                faceDetections = detections;
-              }
-            }
+            performanceStatsRef.current.poseTime = performance.now() - frameStart;
 
             if (poses && poses.length > 0) {
               const { metrics: rawMetrics, feedback: newFeedback, composureScore: rawScore } = calculatePostureMetrics(
@@ -1982,12 +2061,6 @@ export default function LiveAnalysis() {
               setCurrentAdjective(stableAdjective);
               setIsStable(readingIsStable && metricsHistoryRef.current.length >= 5);
 
-              // Draw face mesh FIRST
-              if (faceDetections) {
-                drawFaceMesh(faceDetections, overlayCanvas, scaleX, scaleY);
-              }
-
-              // Draw skeleton OVER it
               drawComposureAnalysis(poses, overlayCanvas, stableAdjective, scaleX, scaleY);
 
               const gesture = detectGesture(poses[0].keypoints);
@@ -2003,7 +2076,6 @@ export default function LiveAnalysis() {
           // Optimized frame skipping for decoder mode
           const currentFrameCount = frameSkipCounterRef.current;
           const shouldProcess = currentFrameCount % 2 === 0;
-          const runFaceDetection = currentFrameCount % 4 === 0;
           frameSkipCounterRef.current++;
 
           if (shouldProcess) {
@@ -2011,22 +2083,7 @@ export default function LiveAnalysis() {
             const poses = await detectorRef.current.estimatePoses(video, {
               flipHorizontal: false,
             });
-            performanceStatsRef.current.poseTime = performance.now() - poseStart;
-
-            // Also get face mesh
-            let faceDetections = null;
-            if (faceApiLoadedRef.current && faceDetectorReady && runFaceDetection) {
-              const detections = await faceapi
-                .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({
-                  inputSize: 224,
-                  scoreThreshold: 0.4
-                }))
-                .withFaceLandmarks();
-
-              if (detections && detections.length > 0) {
-                faceDetections = detections;
-              }
-            }
+            performanceStatsRef.current.poseTime = performance.now() - frameStart;
 
             if (poses && poses.length > 0) {
               const decodedText = decodeBodyLanguage(poses[0].keypoints);
@@ -2039,13 +2096,6 @@ export default function LiveAnalysis() {
               }
 
               setCurrentDecoding(decodedText);
-
-              // Draw face mesh FIRST
-              if (faceDetections) {
-                drawFaceMesh(faceDetections, overlayCanvas, scaleX, scaleY);
-              }
-
-              // Draw skeleton OVER it
               drawPoseLandmarks(poses, overlayCanvas, scaleX, scaleY);
               lastPoseRef.current = poses[0];
             } else {
@@ -2093,8 +2143,8 @@ export default function LiveAnalysis() {
 
   const calculateSessionSummary = (): LiveSessionResult => {
     const avgMetrics = metrics.map(m => ({ label: m.label, value: m.value, color: m.color }));
-    const overallScore = metrics.length > 0
-      ? Math.round(metrics.reduce((sum, m) => sum + m.value, 0) / metrics.length)
+    const overallScore = metrics.length > 0 
+      ? Math.round(metrics.reduce((sum, m) => sum + m.value, 0) / metrics.length) 
       : 0;
 
     const rating = overallScore >= 80 ? "excellent" : overallScore >= 65 ? "good" : overallScore >= 50 ? "fair" : "poor";
@@ -2123,11 +2173,8 @@ export default function LiveAnalysis() {
       keyInsights.push(`Composure: ${currentAdjective}`);
       keyInsights.push(`Stability: ${isStable ? "Locked" : "Variable"}`);
     } else if (mode === "expressions") {
-      const dominantEmotion = Object.entries(emotions).reduce((max, [key, value]) =>
-        value > max.value ? { emotion: key, value } : max,
-        { emotion: "", value: 0 }
-      );
-      keyInsights.push(`Dominant emotion: ${dominantEmotion.emotion} (${dominantEmotion.value}%)`);
+      const dominantEmotion = Object.entries(emotions).reduce((a, b) => a[1] > b[1] ? a : b);
+      keyInsights.push(`Dominant emotion: ${dominantEmotion[0]} (${dominantEmotion[1]}%)`);
       if (emotions.happy > 50) strengths.push("Positive emotional expression");
       if (emotions.angry > 40 || emotions.sad > 40) improvements.push("Work on emotional balance");
     } else if (mode === "decoder") {
@@ -2407,8 +2454,8 @@ Generated by ComposureSense v1.0
     try {
       // Optimized video settings for mobile devices
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: "user",
+        video: { 
+          facingMode: "user", 
           width: { ideal: 640 },  // Lower resolution for better mobile performance
           height: { ideal: 480 },
         },
@@ -2535,7 +2582,6 @@ Generated by ComposureSense v1.0
     }
   };
 
-  // Calculate the dominant emotion for highlighting
   const maxEmotion = Object.entries(emotions).reduce((max, [key, value]) =>
     value > max.value ? { emotion: key, value } : max,
     { emotion: "", value: 0 }
@@ -2607,7 +2653,7 @@ Generated by ComposureSense v1.0
                   autoPlay
                   playsInline
                   muted
-                  className="w-full h-full object-contain brightness-[0.6]"
+                  className="w-full h-full object-contain"
                   data-testid="video-feed"
                 />
                 <canvas
