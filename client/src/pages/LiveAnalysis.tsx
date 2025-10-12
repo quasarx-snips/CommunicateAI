@@ -1454,20 +1454,20 @@ export default function LiveAnalysis() {
 
 
         const now = performance.now();
-          frameCountRef.current++;
-          if (now - lastFrameTimeRef.current >= 1000) {
-            setFps(frameCountRef.current);
-            frameCountRef.current = 0;
-            lastFrameTimeRef.current = now;
-          }
-        } catch (error) {
-          console.error("Detection loop error:", error);
-          // Handle specific errors if needed
+        frameCountRef.current++;
+        if (now - lastFrameTimeRef.current >= 1000) {
+          setFps(frameCountRef.current);
+          frameCountRef.current = 0;
+          lastFrameTimeRef.current = now;
         }
+      } catch (error) {
+        console.error("Detection loop error:", error);
+        // Handle specific errors if needed
       }
+    }
 
-      animationRef.current = requestAnimationFrame(detectLoop);
-    }, [mode, detectorReady, faceDetectorReady]);
+    animationRef.current = requestAnimationFrame(detectLoop);
+  }, [mode, detectorReady, faceDetectorReady]);
 
 
 
