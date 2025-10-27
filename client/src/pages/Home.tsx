@@ -103,7 +103,7 @@ export default function Home() {
           <h2 className="text-xl sm:text-2xl font-bold text-center text-foreground">Get Started</h2>
           
           {/* Live Analysis Button */}
-          <div className="max-w-md mx-auto">
+          <div className="max-w-2xl mx-auto">
             <Button
               onClick={() => setLocation("/live")}
               className="w-full h-auto py-4 sm:py-6 px-6 sm:px-8 text-base sm:text-lg font-semibold bg-green-600 hover:bg-green-700"
@@ -116,7 +116,7 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="relative">
+          <div className="relative max-w-2xl mx-auto">
             <div className="absolute inset-0 flex items-center">
               <span className="w-full border-t" />
             </div>
@@ -125,7 +125,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="max-w-md mx-auto">
+          <div className="max-w-2xl mx-auto">
             {isAnalyzing ? (
               <Button disabled className="w-full h-auto py-4 sm:py-6 px-6 sm:px-8 text-base sm:text-lg font-semibold">
                 <Loader2 className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3 animate-spin" />
@@ -140,7 +140,7 @@ export default function Home() {
               </>
             )}
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 max-w-md mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 max-w-2xl mx-auto">
             <div>
               <UploadButton 
                 icon={Video} 
