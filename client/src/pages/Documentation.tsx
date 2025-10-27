@@ -54,8 +54,8 @@ export default function Documentation() {
 
           <TabsContent value="overview" className="space-y-6">
             <div className="bg-card border border-card-border rounded-xl p-6 sm:p-8">
-              <ScrollArea className="h-[600px] pr-4">
-                <div className="prose prose-slate dark:prose-invert max-w-none">
+              <ScrollArea className="h-[600px] w-full">
+                <div className="prose prose-slate dark:prose-invert max-w-none pr-4">
                   <div className="space-y-6">
                     <div className="text-center mb-8">
                       <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-400 bg-clip-text text-transparent mb-4">
@@ -198,8 +198,8 @@ export default function Documentation() {
 
           <TabsContent value="learn" className="space-y-6">
             <div className="bg-card border border-card-border rounded-xl p-6 sm:p-8">
-              <ScrollArea className="h-[600px] pr-4">
-                <div className="prose prose-slate dark:prose-invert max-w-none">
+              <ScrollArea className="h-[600px] w-full">
+                <div className="prose prose-slate dark:prose-invert max-w-none pr-4">
                   <div className="space-y-6">
                     <div className="text-center mb-8">
                       <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-4">
