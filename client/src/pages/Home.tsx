@@ -132,22 +132,37 @@ export default function Home() {
                 Analyzing...
               </Button>
             ) : (
-              <UploadButton icon={Camera} label="Upload / Take Photo" onClick={handleTakePhoto} />
+              <>
+                <UploadButton icon={Camera} label="Upload / Take Photo" onClick={handleTakePhoto} />
+                <p className="text-xs sm:text-sm text-muted-foreground text-center mt-2">
+                  Analyze a single moment in time
+                </p>
+              </>
             )}
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 max-w-md mx-auto">
-            <UploadButton 
-              icon={Video} 
-              label="Upload / Record Video" 
-              onClick={handleUploadVideo}
-              disabled={isAnalyzing}
-            />
-            <UploadButton 
-              icon={Mic} 
-              label="Upload / Record Audio" 
-              onClick={handleRecordAudio}
-              disabled={isAnalyzing}
-            />
+            <div>
+              <UploadButton 
+                icon={Video} 
+                label="Upload / Record Video" 
+                onClick={handleUploadVideo}
+                disabled={isAnalyzing}
+              />
+              <p className="text-xs sm:text-sm text-muted-foreground text-center mt-2">
+                Analyze movement over time
+              </p>
+            </div>
+            <div>
+              <UploadButton 
+                icon={Mic} 
+                label="Upload / Record Audio" 
+                onClick={handleRecordAudio}
+                disabled={isAnalyzing}
+              />
+              <p className="text-xs sm:text-sm text-muted-foreground text-center mt-2">
+                Analyze vocal patterns and tone
+              </p>
+            </div>
           </div>
         </div>
 
