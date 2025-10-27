@@ -1,3 +1,4 @@
+
 import { LucideIcon } from "lucide-react";
 
 interface DetectionResultProps {
@@ -8,9 +9,18 @@ interface DetectionResultProps {
 }
 
 const colorStyles = {
-  green: "bg-green-100 text-green-600",
-  blue: "bg-blue-100 text-blue-600",
-  orange: "bg-orange-100 text-orange-600",
+  green: {
+    bg: "bg-green-100 dark:bg-green-900/30",
+    icon: "text-green-600 dark:text-green-400"
+  },
+  blue: {
+    bg: "bg-blue-100 dark:bg-blue-900/30",
+    icon: "text-blue-600 dark:text-blue-400"
+  },
+  orange: {
+    bg: "bg-orange-100 dark:bg-orange-900/30",
+    icon: "text-orange-600 dark:text-orange-400"
+  },
 };
 
 export default function DetectionResult({ icon: Icon, label, value, color }: DetectionResultProps) {
