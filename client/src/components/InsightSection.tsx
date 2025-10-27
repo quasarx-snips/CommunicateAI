@@ -24,7 +24,7 @@ const variantStyles = {
 
 export default function InsightSection({ icon: Icon, title, items, variant }: InsightSectionProps) {
   const styles = variantStyles[variant];
-  
+
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-6" data-testid={`section-${title.toLowerCase().replace(/\s+/g, '-')}`}>
       <div className="flex items-center gap-3 mb-4">

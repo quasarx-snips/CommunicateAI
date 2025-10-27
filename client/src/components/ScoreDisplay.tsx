@@ -46,8 +46,8 @@ export default function ScoreDisplay({ score, description, rating }: ScoreDispla
           <h2 className="text-3xl font-bold text-foreground tracking-tight">
             Overall Score
           </h2>
-          <Badge 
-            className={`${config.bg} text-white text-xl px-6 py-2.5 no-default-hover-elevate ${config.glow} transition-all duration-300 hover:scale-105`} 
+          <Badge
+            className={`${config.bg} text-white text-xl px-6 py-2.5 no-default-hover-elevate ${config.glow} transition-all duration-300 hover:scale-105`}
             data-testid="badge-score"
           >
             <IconComponent className="w-5 h-5 mr-2 inline-block" strokeWidth={2.5} />

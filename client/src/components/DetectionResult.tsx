@@ -14,13 +14,15 @@ const colorStyles = {
 };
 
 export default function DetectionResult({ icon: Icon, label, value, color }: DetectionResultProps) {
+  const styles = colorStyles[color];
+
   return (
-    <div className="flex flex-col items-center gap-2 sm:gap-3" data-testid={`detection-${label.toLowerCase()}`}>
-      <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-full ${colorStyles[color]} flex items-center justify-center`}>
-        <Icon className="w-6 h-6 sm:w-8 sm:h-8" />
+    <div className="flex flex-col items-center text-center">
+      <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full ${styles.bg} ${styles.icon} flex items-center justify-center mb-2 sm:mb-3`}>
+        <Icon className="w-5 h-5 sm:w-6 sm:h-6" strokeWidth={2} />
       </div>
-      <p className="text-xs sm:text-sm font-medium text-muted-foreground text-center">{label}</p>
-      <p className="text-xl sm:text-2xl font-bold text-foreground" data-testid={`value-${label.toLowerCase()}`}>{value}</p>
+      <p className="text-lg sm:text-xl font-bold text-foreground mb-1">{value}%</p>
+      <p className="text-xs sm:text-sm text-muted-foreground">{label}</p>
     </div>
   );
 }
