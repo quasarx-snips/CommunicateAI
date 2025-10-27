@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Camera, Loader2, ArrowLeft, StopCircle, Activity, GraduationCap, Briefcase, AlertTriangle, Eye, Save, Download } from "lucide-react";
+import { Camera, Loader2, ArrowLeft, StopCircle, Activity, GraduationCap, Briefcase, AlertTriangle, Eye, Save, Download, Zap } from "lucide-react";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
@@ -1451,7 +1451,7 @@ export default function LiveAnalysis() {
             const ctx = overlayCanvas.getContext("2d");
             if (ctx) ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
           }
-
+        }
 
         const now = performance.now();
         frameCountRef.current++;
@@ -1515,11 +1515,6 @@ export default function LiveAnalysis() {
       if (interviewMetrics.stressIndicators.length > 0) improvements.push("Manage stress indicators");
       keyInsights.push(`Professionalism: ${interviewMetrics.professionalismLevel}`);
       keyInsights.push(`Authenticity: ${interviewMetrics.authenticityScore}%`);
-    } else if (mode === "composure") {
-      if (composureScore >= 70) strengths.push("Strong overall composure");
-      if (composureScore < 60) improvements.push("Improve overall composure");
-      keyInsights.push(`Composure: ${currentAdjective}`);
-      keyInsights.push(`Stability: ${isStable ? "Locked" : "Variable"}`);
     } else if (mode === "expressions") {
       const dominantEmotion = Object.entries(emotions).reduce((max, [key, value]) =>
         value > max.value ? { emotion: key, value } : max,
@@ -1528,10 +1523,6 @@ export default function LiveAnalysis() {
       keyInsights.push(`Dominant emotion: ${dominantEmotion.emotion} (${dominantEmotion.value}%)`);
       if (emotions.happy > 50) strengths.push("Positive emotional expression");
       if (emotions.angry > 40 || emotions.sad > 40) improvements.push("Work on emotional balance");
-    } else if (mode === "decoder") {
-      keyInsights.push(`Actions decoded: ${decodedTexts.length}`);
-      if (decodedTexts.length > 5) strengths.push("Active and expressive body language");
-      if (decodedTexts.length < 3) improvements.push("Be more expressive with gestures");
     }
 
     const modeSpecificData: any = {};
@@ -1708,7 +1699,7 @@ KEY INSIGHTS
       }
 
       // Mode-specific details
-      if (mode === "education" && sessionResult.modeSpecificData.educationMetrics) {
+      if (mode === "education" && sessionResult.modeSpecificData?.educationMetrics) {
         const edu = sessionResult.modeSpecificData.educationMetrics;
         report += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 EDUCATION MODE DETAILS
@@ -1722,7 +1713,7 @@ Learning Readiness: ${edu.learningReadiness}%
 Distraction Flags: ${edu.distractionFlags.length > 0 ? edu.distractionFlags.join(', ') : 'None'}
 Participation Indicators: ${edu.participationIndicators.join(', ')}
 `;
-      } else if (mode === "interview" && sessionResult.modeSpecificData.interviewMetrics) {
+      } else if (mode === "interview" && sessionResult.modeSpecificData?.interviewMetrics) {
         const int = sessionResult.modeSpecificData.interviewMetrics;
         report += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 INTERVIEW MODE DETAILS
