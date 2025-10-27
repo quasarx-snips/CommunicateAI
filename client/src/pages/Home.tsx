@@ -20,16 +20,15 @@ export default function Home() {
 
   const handleFileAnalysis = async (file: File) => {
     setIsAnalyzing(true);
-    
-    // Create a timeout for the analysis
+
     const timeoutId = setTimeout(() => {
       toast({
         title: "Analysis Taking Longer Than Expected",
         description: "The analysis is still processing. Please wait or try a smaller file.",
         variant: "default",
       });
-    }, 10000); // Show message after 10 seconds
-    
+    }, 10000);
+
     try {
       const analysis = await analyzeFile(file);
       clearTimeout(timeoutId);
@@ -37,7 +36,7 @@ export default function Home() {
     } catch (error) {
       clearTimeout(timeoutId);
       console.error("Analysis error:", error);
-      
+
       let errorMessage = "Failed to analyze file";
       if (error instanceof Error) {
         if (error.message.includes("timeout")) {
@@ -48,7 +47,7 @@ export default function Home() {
           errorMessage = error.message;
         }
       }
-      
+
       toast({
         title: "Analysis Failed",
         description: errorMessage,
@@ -81,14 +80,14 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      
+
       <main className="container mx-auto px-4 py-6 sm:py-12 max-w-4xl">
         <div className="text-center mb-8 sm:mb-12">
           <h1 className="text-3xl sm:text-4xl font-bold text-foreground mb-3 sm:mb-4">
             Analyze Your Body Language
           </h1>
           <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto px-2">
-            Get instant insights into your posture, facial expressions, and gestures to improve your communication skills.
+            Get instant insights into your posture, facial expressions, and gestures to improve your communication skills with Gestyx
           </p>
         </div>
 
@@ -101,8 +100,7 @@ export default function Home() {
 
         <div className="space-y-4 sm:space-y-6">
           <h2 className="text-xl sm:text-2xl font-bold text-center text-foreground">Get Started</h2>
-          
-          {/* Live Analysis Button */}
+
           <div className="max-w-2xl mx-auto">
             <Button
               onClick={() => setLocation("/live")}
@@ -142,9 +140,9 @@ export default function Home() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 max-w-2xl mx-auto">
             <div>
-              <UploadButton 
-                icon={Video} 
-                label="Upload / Record Video" 
+              <UploadButton
+                icon={Video}
+                label="Upload / Record Video"
                 onClick={handleUploadVideo}
                 disabled={isAnalyzing}
               />
@@ -153,9 +151,9 @@ export default function Home() {
               </p>
             </div>
             <div>
-              <UploadButton 
-                icon={Mic} 
-                label="Upload / Record Audio" 
+              <UploadButton
+                icon={Mic}
+                label="Upload / Record Audio"
                 onClick={handleRecordAudio}
                 disabled={isAnalyzing}
               />
@@ -166,7 +164,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Hidden file inputs */}
         <input
           ref={fileInputRef}
           type="file"

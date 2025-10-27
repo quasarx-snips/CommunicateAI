@@ -30,7 +30,7 @@ export async function analyzeBodyLanguage(
   fileName: string
 ): Promise<AnalysisResult> {
   try {
-    const systemPrompt = `You are an expert body language analyst with advanced training in kinesics, proxemics, and non-verbal communication patterns. Analyze the provided media with professional precision and neural pattern recognition capabilities.
+    const systemPrompt = `You are an expert body language analyst for Gestyx, an AI-powered interview preparation and communication coaching platform. Analyze the provided image or video with extreme precision using advanced computer vision, kinesics, and behavioral psychology principles.
 
 ADVANCED ANALYSIS FRAMEWORK:
 
@@ -173,12 +173,10 @@ Analyze this ${mimeType.startsWith('image/') ? 'image' : mimeType.startsWith('vi
     if (rawJson) {
       const data: AnalysisResult = JSON.parse(rawJson);
 
-      // Validate and format data
       if (!data || typeof data !== 'object' || !data.detections || !data.metrics) {
         throw new Error("Invalid response structure from Gemini");
       }
 
-      // Ensure all percentage values are properly formatted (0-100)
       data.detections = data.detections.map(d => {
         if (typeof d.value !== 'number') throw new Error("Invalid detection value type");
         return {
@@ -284,12 +282,10 @@ Analyze this image for facial expressions, emotions, and age. Provide precise em
     if (rawJson) {
       const data = JSON.parse(rawJson);
 
-      // Validate response structure
       if (!data || typeof data !== 'object' || !data.emotions || typeof data.emotions !== 'object' || typeof data.age !== 'number' || typeof data.gender !== 'string' || typeof data.faceDetected !== 'boolean') {
         throw new Error("Invalid response structure from Gemini");
       }
-      
-      // Ensure emotions are properly formatted as percentages (0-100)
+
       let emotions = {
         neutral: data.emotions.neutral <= 1 ? data.emotions.neutral * 100 : data.emotions.neutral,
         happy: data.emotions.happy <= 1 ? data.emotions.happy * 100 : data.emotions.happy,
@@ -300,7 +296,6 @@ Analyze this image for facial expressions, emotions, and age. Provide precise em
         sad: data.emotions.sad <= 1 ? data.emotions.sad * 100 : data.emotions.sad
       };
 
-      // Normalize emotions to sum to 100%
       const emotionSum = Object.values(emotions).reduce((sum, val) => sum + val, 0);
       if (emotionSum > 0) {
         Object.keys(emotions).forEach(key => {
@@ -308,7 +303,6 @@ Analyze this image for facial expressions, emotions, and age. Provide precise em
         });
       }
 
-      // Ensure exact sum of 100 by adjusting the highest emotion if needed
       const normalizedSum = Object.values(emotions).reduce((sum, val) => sum + val, 0);
       if (normalizedSum !== 100 && normalizedSum > 0) {
         const maxEmotion = Object.entries(emotions).reduce((max, [key, val]) => 

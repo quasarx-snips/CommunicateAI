@@ -19,7 +19,7 @@ export default function Header() {
           </div>
           <div>
             <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text">
-              ComposureSense
+              Gestyx
             </h1>
             <p className="text-xs text-muted-foreground font-medium">
               AI Body Language Analysis

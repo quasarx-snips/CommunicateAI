@@ -1,8 +1,8 @@
-# ComposureSense - AI Body Language Analysis
+# Gestyx - AI Body Language Analysis
 
 ## Overview
 
-ComposureSense is an AI-powered web application that provides real-time feedback on body language, posture, facial expressions, and non-verbal communication. The application supports both static media analysis (images/videos) and live webcam analysis with multiple specialized modes for different use cases like education, interviews, and general composure assessment.
+Gestyx is an AI-powered web application that provides real-time feedback on body language, posture, facial expressions, and non-verbal communication. The application supports both static media analysis (images/videos) and live webcam analysis with multiple specialized modes for different use cases like education, interviews, and general composure assessment.
 
 ## User Preferences
 

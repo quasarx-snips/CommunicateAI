@@ -11,7 +11,7 @@
 
 **Real-time AI feedback on body language, posture, and non-verbal communication**
 
-[Demo](https://gestyx.replit.app) • [Documentation](./User%20Manual.md) • [Report Bug](https://github.com/yourusername/gestyx/issues) • [Request Feature](https://github.com/yourusername/gestyx/issues)
+[Demo](https://gestyx.replit.app) • [Documentation](./LearnMore.md) • [Report Bug](https://github.com/yourusername/gestyx/issues) • [Request Feature](https://github.com/yourusername/gestyx/issues)
 
 </div>
 
