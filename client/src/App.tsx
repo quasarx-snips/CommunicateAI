@@ -10,6 +10,7 @@ import Results from "@/pages/Results";
 import History from "@/pages/History";
 import LiveAnalysis from "@/pages/LiveAnalysis";
 import NotFound from "@/pages/not-found";
+import Documentation from "@/pages/Documentation";
 
 function Router() {
   return (
@@ -18,6 +19,7 @@ function Router() {
       <Route path="/results/:id" component={Results} />
       <Route path="/history" component={History} />
       <Route path="/live" component={LiveAnalysis} />
+      <Route path="/docs" component={Documentation} />
       <Route component={NotFound} />
     </Switch>
   );

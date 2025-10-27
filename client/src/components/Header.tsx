@@ -1,4 +1,4 @@
-import { User, Moon, Sun, History, Activity } from "lucide-react";
+import { User, Moon, Sun, History, Activity, Book } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/components/ThemeProvider";
 import { useLocation } from "wouter";
@@ -27,6 +27,16 @@ export default function Header() {
           </div>
         </button>
         <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setLocation("/docs")}
+            aria-label="View documentation"
+            className="h-10 w-10 rounded-lg hover:bg-accent"
+            data-testid="button-docs"
+          >
+            <Book className="h-5 w-5" />
+          </Button>
           <Button
             variant="ghost"
             size="icon"
