@@ -87,7 +87,7 @@ export default function Results() {
         <div className="space-y-6 sm:space-y-8">
           {/* Uploaded Media Display */}
           <div className="bg-card border border-card-border rounded-xl p-4 sm:p-6">
-            <h2 className="text-lg sm:text-xl font-semibold text-foreground mb-3 sm:mb-4 text-center">Analyzed Media</h2>
+            <h2 className="text-lg sm:text-xl font-semibold text-card-foreground mb-3 sm:mb-4 text-center">Analyzed Media</h2>
             <div className="flex justify-center">
               {analysis.fileType?.startsWith('image/') && (
                 <img 
@@ -165,7 +165,7 @@ export default function Results() {
 
           {/* Body Language Metrics */}
           <div className="bg-card rounded-xl border border-card-border p-4 sm:p-6">
-            <h2 className="text-lg sm:text-xl font-semibold text-foreground mb-4 sm:mb-6">Body Language Metrics</h2>
+            <h2 className="text-lg sm:text-xl font-semibold text-card-foreground mb-4 sm:mb-6">Body Language Metrics</h2>
             <div className="space-y-4 sm:space-y-6">
               {result.metrics.map((metric) => (
                 <MetricBar

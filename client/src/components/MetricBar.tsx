@@ -29,7 +29,7 @@ const colorStyles = {
 
 export default function MetricBar({ label, value, color = "green" }: MetricBarProps) {
   const config = colorStyles[color] || colorStyles.green;
-
+  
   return (
     <div className="space-y-2.5">
       <div className="flex items-center justify-between">
